@@ -12,7 +12,7 @@ menu_router = Router()
 
 @menu_router.message(Command("menu"))
 async def show_menu(message: Message):
-    await message.answer("Виберіть пункт меню:", reply_markup=simple_menu_keyboard())
+    await message.answer("Выберите пункт меню:", reply_markup=simple_menu_keyboard())
 
 
 # We can use F.data filter to filter callback queries by data field from CallbackQuery object
@@ -23,7 +23,7 @@ async def create_order(query: CallbackQuery):
 
     # This method will send an answer to the message with the button, that user pressed
     # Here query - is a CallbackQuery object, which contains message: Message object
-    await query.message.answer("Ви обрали створення замовлення!")
+    await query.message.answer("Вы выбрали создание заказа!")
 
     # You can also Edit the message with a new text
     # await query.message.edit_text("Ви обрали створення замовлення!")
@@ -31,16 +31,16 @@ async def create_order(query: CallbackQuery):
 
 # Let's create a simple list of orders for demonstration purposes
 ORDERS = [
-    {"id": 1, "title": "Замовлення 1", "status": "Виконується"},
-    {"id": 2, "title": "Замовлення 2", "status": "Виконано"},
-    {"id": 3, "title": "Замовлення 3", "status": "Виконано"},
+    {"id": 1, "title": "Заказ 1", "status": "Выполняется"},
+    {"id": 2, "title": "Заказ 2", "status": "Выполнено"},
+    {"id": 3, "title": "Заказ 3", "status": "Выполнено"},
 ]
 
 
 @menu_router.callback_query(F.data == "my_orders")
 async def my_orders(query: CallbackQuery):
     await query.answer()
-    await query.message.edit_text("Ви обрали перегляд ваших замовлень!",
+    await query.message.edit_text("Вы выбрали просмотр ваших заказов!",
                                   reply_markup=my_orders_keyboard(ORDERS))
 
 
@@ -59,7 +59,7 @@ async def show_order(query: CallbackQuery, callback_data: OrderCallbackData):
         # Here we use aiogram.utils.formatting to format the text
         # https://docs.aiogram.dev/en/latest/utils/formatting.html
         text = as_section(
-            as_key_value("Замовлення #", order_info["id"]),
+            as_key_value("Заказ #", order_info["id"]),
             as_marked_list(
                 as_key_value("Товар", order_info["title"]),
                 as_key_value("Статус", order_info["status"]),
@@ -75,4 +75,4 @@ async def show_order(query: CallbackQuery, callback_data: OrderCallbackData):
         # You can also use MarkdownV2:
         # await query.message.edit_text(text.as_markdown(), parse_mode=ParseMode.MARKDOWN_V2)
     else:
-        await query.message.edit_text("Замовлення не знайдено!")
+        await query.message.edit_text("Заказа не найдено!")
