@@ -1,7 +1,7 @@
 import logging
 
 import betterlogging as bl
-import fastapi
+# import fastapi
 from aiogram import Bot
 from fastapi import FastAPI
 from starlette.responses import JSONResponse

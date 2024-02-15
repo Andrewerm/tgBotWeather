@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-import betterlogging as bl
+import betterlogging as bl  # type: ignore
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
@@ -9,11 +9,13 @@ from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 from tgbot.config import load_config, Config
 from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
+from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services import broadcaster
 
 
 async def on_startup(bot: Bot, admin_ids: list[int]):
     await broadcaster.broadcast(bot, admin_ids, "Бот запущен")
+    await set_main_menu(bot)
 
 
 def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=None):
@@ -52,7 +54,7 @@ def setup_logging():
     Example usage:
         setup_logging()
     """
-    log_level = logging.INFO
+    log_level = logging.DEBUG
     bl.basic_colorized_config(level=log_level)
 
     logging.basicConfig(
@@ -95,7 +97,6 @@ async def main():
     dp.include_routers(*routers_list)
 
     register_global_middlewares(dp, config)
-
     await on_startup(bot, config.tg_bot.admin_ids)
     await dp.start_polling(bot)
 

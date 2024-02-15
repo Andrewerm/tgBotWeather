@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import ssl
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import backoff
 from aiohttp import ClientError, ClientSession, TCPConnector, FormData
 from ujson import dumps, loads
+
+from infrastructure.some_api.type import ApiResponseType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -50,7 +52,7 @@ class BaseClient:
         json: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
         data: FormData | None = None,
-    ) -> tuple[int, dict[str, Any]]:
+    ) -> ApiResponseType:
         """Make request and return decoded json response."""
         session = await self._get_session()
 

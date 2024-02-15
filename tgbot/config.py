@@ -76,6 +76,7 @@ class TgBot:
     token: str
     admin_ids: list[int]
     use_redis: bool
+    webhook_url: str
 
     @staticmethod
     def from_env(env: Env):
@@ -85,7 +86,8 @@ class TgBot:
         token = env.str("BOT_TOKEN")
         admin_ids = env.list("ADMINS", subcast=int)
         use_redis = env.bool("USE_REDIS")
-        return TgBot(token=token, admin_ids=admin_ids, use_redis=use_redis)
+        webhook_url = env.str("WEBHOOK_URL") + ':' + env.str("WEBHOOK_EXPOSE")
+        return TgBot(token=token, admin_ids=admin_ids, use_redis=use_redis, webhook_url=webhook_url)
 
 
 @dataclass
@@ -131,6 +133,30 @@ class RedisConfig:
 
 
 @dataclass
+class WeatherServiceConfig:
+    api_key: str
+    lang: str
+
+    @staticmethod
+    def from_env(env: Env):
+        api_key = env.str("YANDEX_WEATHER")
+        lang = "ru_RU"
+        return WeatherServiceConfig(api_key=api_key, lang=lang)
+
+
+@dataclass
+class GeoServiceConfig:
+    api_key: str
+    lang: str
+
+    @staticmethod
+    def from_env(env: Env):
+        api_key = env.str("YANDEX_GEO")
+        lang = "ru_RU"
+        return GeoServiceConfig(api_key=api_key, lang=lang)
+
+
+@dataclass
 class Miscellaneous:
     """
     Miscellaneous configuration class.
@@ -144,7 +170,7 @@ class Miscellaneous:
         A string used to hold other various parameters as required (default is None).
     """
 
-    other_params: str = None
+    other_params: Optional[str] = None
 
 
 @dataclass
@@ -170,9 +196,11 @@ class Config:
     misc: Miscellaneous
     db: Optional[DbConfig] = None
     redis: Optional[RedisConfig] = None
+    weather: Optional[WeatherServiceConfig] = None
+    geo: Optional[GeoServiceConfig] = None
 
 
-def load_config(path: str = None) -> Config:
+def load_config(path: Optional[str] = None) -> Config:
     """
     This function takes an optional file path as input and returns a Config object.
     :param path: The path of env file from where to load the configuration variables.
@@ -190,4 +218,6 @@ def load_config(path: str = None) -> Config:
         # db=DbConfig.from_env(env),
         # redis=RedisConfig.from_env(env),
         misc=Miscellaneous(),
+        weather=WeatherServiceConfig.from_env(env),
+        geo=GeoServiceConfig.from_env(env)
     )
