@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-
+import logging
 import ssl
 from typing import TYPE_CHECKING
 
@@ -10,8 +10,6 @@ from aiohttp import ClientError, ClientSession, TCPConnector, FormData
 from ujson import dumps, loads
 
 from infrastructure.some_api.type import ApiResponseType
-from tgbot.services import logger
-from tgbot.services.logger import setup_custom_logger
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -26,7 +24,7 @@ class BaseClient:
     def __init__(self, base_url: str | URL) -> None:
         self._base_url = base_url
         self._session: ClientSession | None = None
-        self.log = setup_custom_logger(self.__class__.__name__)
+        self.log = logging.getLogger(self.__class__.__name__)
 
     async def _get_session(self) -> ClientSession:
         """Get aiohttp session with cache."""

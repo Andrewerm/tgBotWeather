@@ -54,7 +54,7 @@ async def location_weather(message: Message, state: FSMContext):
         # Создаем объект InlineKeyboardMarkup и добавляем кнопку
         markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
         await message.reply(
-            f"🧭 Ваше местоположение: {defined_location.description}, {defined_location.name}"
+            f"🧭 Ваше местоположение: {defined_location.description}, {defined_location.name}\n"
             f"Погода:\n"
             f"🌡️ фактическая температура: {weather_data.fact_temp},\n"
             f"🐱 по ощущению: {weather_data.fact_feels_like},\n"

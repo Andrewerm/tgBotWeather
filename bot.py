@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 
 import betterlogging as bl  # type: ignore
 from aiogram import Bot, Dispatcher
@@ -13,7 +12,7 @@ from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services import broadcaster
-from tgbot.services.logger import YcLoggingFormatter, setup_custom_logger
+from tgbot.services.logging_config import YcLoggingFormatter
 
 
 async def on_startup(bot: Bot, admin_ids: list[int]):
@@ -22,8 +21,17 @@ async def on_startup(bot: Bot, admin_ids: list[int]):
 
 
 async def start_script():
-
     config = load_config()
+    root_logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    if config.misc.app_env == 'yandex':
+        handler.setFormatter(YcLoggingFormatter('%(message)s %(level)s %(logger)s'))
+    if config.misc.app_env == 'local':
+        handler.setFormatter(bl.ColorizedFormatter(hide_lib_diagnose=False))
+    root_logger.addHandler(handler)
+    root_logger.propagate = False
+    root_logger.setLevel(logging.DEBUG)
+
     storage = get_storage(config)
     dp = Dispatcher(storage=storage)
     dp.include_routers(*routers_list)
@@ -54,32 +62,6 @@ def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=Non
         dp.callback_query.outer_middleware(middleware_type)
 
 
-def setup_logging():
-    """
-    Set up logging configuration for the application.
-
-    This method initializes the logging configuration for the application.
-    It sets the log level to INFO and configures a basic colorized log for
-    output. The log format includes the filename, line number, log level,
-    timestamp, logger name, and log message.
-
-    Returns:
-        None
-
-    Example usage:
-        setup_logging()
-    """
-    log_level = logging.DEBUG
-    bl.basic_colorized_config(level=log_level)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(filename)s:%(lineno)d #%(levelname)-8s [%(asctime)s] - %(name)s - %(message)s",
-    )
-    logger = logging.getLogger(__name__)
-    logger.info("Starting bot")
-
-
 def get_storage(config):
     """
     Return storage based on the provided configuration.
@@ -101,15 +83,12 @@ def get_storage(config):
 
 
 async def main():
-
     dp, bot = await start_script()
     await bot.delete_webhook()
     await dp.start_polling(bot)
 
 
 async def ya_handler(event, context) -> dict:
-    logger = setup_custom_logger(__name__)
-    logger.debug('Received event')
     dp, bot = await start_script()
     tg_context: str = event['body']
     tg_context_dict = json.loads(tg_context)
@@ -118,10 +97,6 @@ async def ya_handler(event, context) -> dict:
     return {
         'statusCode': 200,
     }
-
-
-# if __name__ == 'bot':
-#     logging.warning('Starting bot')
 
 
 if __name__ == "__main__":

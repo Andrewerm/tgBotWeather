@@ -1,22 +1,19 @@
 
 NGROK_DOMAIN_NAME=tortoise-integral-totally.ngrok-free.app
-YC=/home/andrewerm/yandex-cloud/bin/yc
+YC=/home/andrew/yandex-cloud/bin/yc
 API-NAME=test-yc-bot
 FUNC_NAME=test-yc-func-bot
 FUNC_INIT_NAME=test-yc-func-init
 SERVICE_ACC=service-account-for-cf
-BOT_TOKEN=6427883624:AAEO5gSpb-C-ms5TkTeGqsO7d14cZm7Yse8
 BOT_TOKEN_SECRET=e6qogk0nvce1cfcoopnf
 YA_WEATHER_TOKEN_SECRET=e6qdfn9d8n3l5476govp
 YA_GEO_TOKEN_SECRET=e6qchj74taa4dnn6oed6
 WEBHOOK_URL=https://d5dc9bor4t8rikj6uf5b.apigw.yandexcloud.net
 WEBHOOK_PATH=/webhook
 BUCKET_NAME=tg-bot-bucket-010101
-YA_WEATHER=0d859f58-bafe-4bcd-a29a-1dbd1a510ede
-YANDEX_GEO=ae46126c-27e7-419c-a44c-c503864debe8
 
 ngrok-start:
-	docker run --net=host -i -t -e NGROK_AUTHTOKEN=2cMyUA1w0SNn10qv18g8nFB6o7D_7zVCeyS9WvGwuq7CSveMQ ngrok/ngrok:latest http --domain=tortoise-integral-totally.ngrok-free.app 8001
+	docker run --rm -it -p 4040:4040 -e NGROK_AUTHTOKEN=2cMyUA1w0SNn10qv18g8nFB6o7D_7zVCeyS9WvGwuq7CSveMQ ngrok/ngrok http --domain=tortoise-integral-totally.ngrok-free.app host.docker.internal:8080
 
 make-self-signed-cert:
 	openssl req -newkey rsa:2048 -sha256 -nodes -keyout SERVERPRIVATE.key -x509 -days 365 -out SERVERPUBLIC.pem -subj "/C=RU/ST=Moscow/L=Moscow/O=Example Company/CN=testhost"
