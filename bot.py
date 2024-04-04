@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 
 import betterlogging as bl  # type: ignore
 from aiogram import Bot, Dispatcher
@@ -11,11 +13,24 @@ from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services import broadcaster
+from tgbot.services.logger import YcLoggingFormatter, setup_custom_logger
 
 
 async def on_startup(bot: Bot, admin_ids: list[int]):
     await broadcaster.broadcast(bot, admin_ids, "Бот запущен")
     await set_main_menu(bot)
+
+
+async def start_script():
+
+    config = load_config()
+    storage = get_storage(config)
+    dp = Dispatcher(storage=storage)
+    dp.include_routers(*routers_list)
+    bot = Bot(token=config.tg_bot.token, parse_mode="HTML")
+    register_global_middlewares(dp, config)
+    await on_startup(bot, config.tg_bot.admin_ids)
+    return dp, bot
 
 
 def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=None):
@@ -86,19 +101,27 @@ def get_storage(config):
 
 
 async def main():
-    setup_logging()
 
-    config = load_config(".env")
-    storage = get_storage(config)
-
-    bot = Bot(token=config.tg_bot.token, parse_mode="HTML")
-    dp = Dispatcher(storage=storage)
-
-    dp.include_routers(*routers_list)
-
-    register_global_middlewares(dp, config)
-    await on_startup(bot, config.tg_bot.admin_ids)
+    dp, bot = await start_script()
+    await bot.delete_webhook()
     await dp.start_polling(bot)
+
+
+async def ya_handler(event, context) -> dict:
+    logger = setup_custom_logger(__name__)
+    logger.debug('Received event')
+    dp, bot = await start_script()
+    tg_context: str = event['body']
+    tg_context_dict = json.loads(tg_context)
+    await dp.feed_raw_update(bot=bot, update=tg_context_dict)
+
+    return {
+        'statusCode': 200,
+    }
+
+
+# if __name__ == 'bot':
+#     logging.warning('Starting bot')
 
 
 if __name__ == "__main__":

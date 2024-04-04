@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -76,7 +77,7 @@ class TgBot:
     token: str
     admin_ids: list[int]
     use_redis: bool
-    webhook_url: str
+    webhook_url: Optional[str]
 
     @staticmethod
     def from_env(env: Env):
@@ -86,7 +87,8 @@ class TgBot:
         token = env.str("BOT_TOKEN")
         admin_ids = env.list("ADMINS", subcast=int)
         use_redis = env.bool("USE_REDIS")
-        webhook_url = env.str("WEBHOOK_URL") + ':' + env.str("WEBHOOK_EXPOSE")
+        webhook_url = env("WEBHOOK_URL", default=None)
+
         return TgBot(token=token, admin_ids=admin_ids, use_redis=use_redis, webhook_url=webhook_url)
 
 
@@ -139,7 +141,7 @@ class WeatherServiceConfig:
 
     @staticmethod
     def from_env(env: Env):
-        api_key = env.str("YANDEX_WEATHER")
+        api_key = env.str("YA_WEATHER")
         lang = "ru_RU"
         return WeatherServiceConfig(api_key=api_key, lang=lang)
 
@@ -151,13 +153,14 @@ class GeoServiceConfig:
 
     @staticmethod
     def from_env(env: Env):
-        api_key = env.str("YANDEX_GEO")
+        api_key = env.str("YA_GEO")
         lang = "ru_RU"
         return GeoServiceConfig(api_key=api_key, lang=lang)
 
 
 @dataclass
 class Miscellaneous:
+    app_env: str
     """
     Miscellaneous configuration class.
 
@@ -171,6 +174,11 @@ class Miscellaneous:
     """
 
     other_params: Optional[str] = None
+
+    @staticmethod
+    def from_env(env: Env):
+        app_env = env.str("APP_ENV")
+        return Miscellaneous(app_env=app_env)
 
 
 @dataclass
@@ -200,24 +208,27 @@ class Config:
     geo: Optional[GeoServiceConfig] = None
 
 
-def load_config(path: Optional[str] = None) -> Config:
+def load_config() -> Config:
     """
     This function takes an optional file path as input and returns a Config object.
-    :param path: The path of env file from where to load the configuration variables.
     It reads environment variables from a .env file if provided, else from the process environment.
     :return: Config object with attributes set as per environment variables.
     """
 
+    current_app_env: str = os.getenv('APP_ENV')
+    if not current_app_env:
+        raise Exception('Переменная окружения APP_ENV не указана')
     # Create an Env object.
     # The Env object will be used to read environment variables.
     env = Env()
-    env.read_env(path)
+    env.read_env()
+    env.read_env('.env.' + current_app_env.lower())
 
     return Config(
         tg_bot=TgBot.from_env(env),
         # db=DbConfig.from_env(env),
         # redis=RedisConfig.from_env(env),
-        misc=Miscellaneous(),
+        misc=Miscellaneous.from_env(env),
         weather=WeatherServiceConfig.from_env(env),
         geo=GeoServiceConfig.from_env(env)
     )

@@ -2,6 +2,7 @@ aiogram
 environs
 redis
 betterlogging
+python-json-logger
 
 # # For enabling api:
 backoff
@@ -9,9 +10,9 @@ ujson
 yarl
 
 # # For PostgreSQL sqlalchemy + alembic:
-sqlalchemy
-alembic~=1.0
-asyncpg
+#sqlalchemy
+#alembic~=1.0
+#asyncpg
 
 typing_extensions
 aiohttp
