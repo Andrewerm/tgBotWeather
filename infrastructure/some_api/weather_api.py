@@ -47,4 +47,4 @@ class YaWeatherApi(BaseClient):
             return WeatherDto(fact_temp=fact['temp'], fact_feels_like=fact['feels_like'],
                               fact_condition=fact['condition'], url=info['url'])
         else:
-            raise ApiHttpException('Ошибка ответа от Яндекс погоды')
+            raise ApiHttpException(f'Ошибка ответа от Яндекс погоды, код: {result[0]}')

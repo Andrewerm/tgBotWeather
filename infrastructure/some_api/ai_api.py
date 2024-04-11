@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from infrastructure.some_api.base import BaseClient
+from infrastructure.some_api.exception import ApiHttpException
 from infrastructure.some_api.type import ApiResponseType
 from tgbot.config import load_config
 
@@ -34,14 +35,8 @@ class AiRequest:
 
 
 @dataclass
-class AiResponseAlternativesMessage:
-    role: Role
-    text: str
-
-
-@dataclass
 class AiResponseAlternatives:
-    message: AiResponseAlternativesMessage
+    message: AiMessage
     status: str
 
 
@@ -75,9 +70,11 @@ class YandexChatGpt(BaseClient):
 
     async def do_request(self, request: AiRequest):
         params = self._request_transform(request)
-        result = await self._get_request(params)
+        code, result = await self._get_request(params)
         await self.close()
-        return result
+        if code == 200:
+            return self._response_parse(result['result'])
+        raise ApiHttpException(f'Ошибка ответа от Яндекс GPT, код: {code}')
 
     def _request_transform(self, request: AiRequest) -> dict:
         return {
@@ -89,3 +86,14 @@ class YandexChatGpt(BaseClient):
             },
             "messages": [{'role': i.role.value, 'text': i.text} for i in request.messages]
         }
+
+    def _response_parse(self, response: dict) -> AiResponse:
+        alternatives = [AiResponseAlternatives(status=i['status'],
+                                               message=AiMessage(text=i['message']['text'],
+                                                                 role=Role[i['message']['role'].upper()])) for i in
+                        response['alternatives']]
+        usage = AiResponseUsage(inputTextTokens=response['usage']['inputTextTokens'],
+                                completionTokens=response['usage']['completionTokens'],
+                                totalTokens=response['usage']['totalTokens'])
+        result = AiResponse(modelVersion=response['modelVersion'], alternatives=alternatives, usage=usage)
+        return result

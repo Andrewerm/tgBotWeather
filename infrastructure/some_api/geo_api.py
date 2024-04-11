@@ -61,4 +61,4 @@ class YaGeoApi(BaseClient):
                 raise ApiParsingException(f'Ошибка парсинга {err}')
 
         else:
-            raise ApiHttpException('Ошибка ответа от Яндекс геокодирования')
+            raise ApiHttpException(f'Ошибка ответа от Яндекс геокодирования, код: {result[0]}')

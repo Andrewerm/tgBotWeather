@@ -1,5 +1,6 @@
 """Import all routers and add them to routers_list."""
 from .admin import admin_router  # type: ignore
+from .ai import ai_router
 from .echo import echo_router  # type: ignore
 from .profile import profile_router  # type: ignore
 from .simple_menu import menu_router  # type: ignore
@@ -7,6 +8,7 @@ from .user import user_router  # type: ignore
 from .weather import weather_router  # type: ignore
 
 routers_list = [
+    ai_router,
     profile_router,
     weather_router,
     # admin_router,
