@@ -182,6 +182,20 @@ class Miscellaneous:
 
 
 @dataclass
+class YandexGptConfig:
+    api_key: str
+    service_url: str
+    gpt_lite_uri: str
+
+    @staticmethod
+    def from_env(env: Env):
+        api_key = env.str('YA_CHAT_GPT')
+        url = env.str('YA_GPT_URL')
+        gpt_lite_uri = env.str('YA_GPT_LITE_URI')
+        return YandexGptConfig(api_key=api_key, service_url=url, gpt_lite_uri=gpt_lite_uri)
+
+
+@dataclass
 class Config:
     """
     The main configuration class that integrates all the other configuration classes.
@@ -202,6 +216,7 @@ class Config:
 
     tg_bot: TgBot
     misc: Miscellaneous
+    gpt: YandexGptConfig
     db: Optional[DbConfig] = None
     redis: Optional[RedisConfig] = None
     weather: Optional[WeatherServiceConfig] = None
@@ -227,8 +242,9 @@ def load_config() -> Config:
     return Config(
         tg_bot=TgBot.from_env(env),
         # db=DbConfig.from_env(env),
-        # redis=RedisConfig.from_env(env),
+        redis=RedisConfig.from_env(env),
         misc=Miscellaneous.from_env(env),
         weather=WeatherServiceConfig.from_env(env),
-        geo=GeoServiceConfig.from_env(env)
+        geo=GeoServiceConfig.from_env(env),
+        gpt=YandexGptConfig.from_env(env)
     )

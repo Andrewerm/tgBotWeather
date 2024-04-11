@@ -1,3 +1,4 @@
+include .env.local
 
 NGROK_DOMAIN_NAME=tortoise-integral-totally.ngrok-free.app
 YC=/home/andrew/yandex-cloud/bin/yc
@@ -8,6 +9,7 @@ SERVICE_ACC=service-account-for-cf
 BOT_TOKEN_SECRET=e6qogk0nvce1cfcoopnf
 YA_WEATHER_TOKEN_SECRET=e6qdfn9d8n3l5476govp
 YA_GEO_TOKEN_SECRET=e6qchj74taa4dnn6oed6
+REDIS_PASSWORD_SECRET=e6qn4ub0u3c24kvitcpk
 WEBHOOK_URL=https://d5dc9bor4t8rikj6uf5b.apigw.yandexcloud.net
 WEBHOOK_PATH=/webhook
 BUCKET_NAME=tg-bot-bucket-010101
@@ -72,7 +74,8 @@ yc-func-version-create:
     --environment APP_ENV=yandex \
     --secret environment-variable=BOT_TOKEN,id=${BOT_TOKEN_SECRET},key=bot_token \
     --secret environment-variable=YA_WEATHER,id=${YA_WEATHER_TOKEN_SECRET},key=ya_weather_token \
-    --secret environment-variable=YA_GEO,id=${YA_GEO_TOKEN_SECRET},key=ya_geo_token
+    --secret environment-variable=YA_GEO,id=${YA_GEO_TOKEN_SECRET},key=ya_geo_token \
+    --secret environment-variable=REDIS_PASSWORD,id=${REDIS_PASSWORD_SECRET},key=redis_password
 
 yc-func-init-exec:
 	${YC} serverless function invoke --name ${FUNC_INIT_NAME}
@@ -90,7 +93,10 @@ yc-access-key-create:
 	${YC} iam access-key create --service-account-name ${SERVICE_ACC}
 
 yc-api-key-create:
-	${YC} iam api-key create --service-account-name ${SERVICE_ACC}
+	${YC} iam api-key create --service-account-name ${SERVICE_ACC} --description "Для Yandex Chatgpt в телеграмм Боте"
+
+yc-iam-token-create:
+	${YC} iam key create --service-account-name ${SERVICE_ACC} --description "Для Yandex Chatgpt в телеграмм Боте" --output key.json
 
 # service-account-for-cf
 # key_id: YCAJEVk_m3OV9MlxW5tztcmZ3
@@ -120,6 +126,12 @@ yc-secret-create-ya-geo:
 	--description "Токен Яндекс Геолокации" \
 	--payload "[{ 'key': 'ya_geo_token', 'text_value': ${YANDEX_GEO}}]"
 
+yc-secret-create-ya-redis:
+	${YC} lockbox secret create \
+	--name ya-redis-password \
+	--description "Пароль к redis" \
+	--payload "[{ 'key': 'redis_password', 'text_value': ${REDIS_PASSWORD}}]"
+
 yc-secret-list:
 	${YC} lockbox secret list
 
@@ -145,7 +157,7 @@ check-tg-info:
 	curl --request GET -sL --url 'https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo' | jq '.result'
 
 yc-real-time-log:
-	${YC} logging read --follow
+	${YC} logging read --follow  --levels info,warn,error
 
 yc-create-bucket:
 	${YC} storage bucket create \
@@ -162,3 +174,16 @@ yc-delete-bucket:
 
 yc-database-create:
 	yc ydb database create tg-db --serverless --description "БД для телеграмм - бота"
+
+
+redis-start:
+	docker run --name redic-cont --rm -p "6379:6379" -v redis:/data redis redis-server --save 60 1 --requirepass my-password
+
+redis-stop:
+	docker stop redic-cont
+
+ya-redis-start:
+	${YC} managed-redis cluster start --name redis388
+
+ya-redis-stop:
+	${YC} managed-redis cluster stop --name redis388

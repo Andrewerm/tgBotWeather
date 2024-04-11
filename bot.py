@@ -11,34 +11,27 @@ from tgbot.config import load_config, Config
 from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
-from tgbot.services import broadcaster
 from tgbot.services.logging_config import YcLoggingFormatter
 
 
-async def on_startup(bot: Bot, admin_ids: list[int]):
-    await broadcaster.broadcast(bot, admin_ids, "Бот запущен")
-    await set_main_menu(bot)
+def get_storage(config):
+    """
+    Return storage based on the provided configuration.
 
+    Args:
+        config (Config): The configuration object.
 
-async def start_script():
-    config = load_config()
-    root_logger = logging.getLogger()
-    handler = logging.StreamHandler()
-    if config.misc.app_env == 'yandex':
-        handler.setFormatter(YcLoggingFormatter('%(message)s %(level)s %(logger)s'))
-    if config.misc.app_env == 'local':
-        handler.setFormatter(bl.ColorizedFormatter(hide_lib_diagnose=False))
-    root_logger.addHandler(handler)
-    root_logger.propagate = False
-    root_logger.setLevel(logging.DEBUG)
+    Returns:
+        Storage: The storage object based on the configuration.
 
-    storage = get_storage(config)
-    dp = Dispatcher(storage=storage)
-    dp.include_routers(*routers_list)
-    bot = Bot(token=config.tg_bot.token, parse_mode="HTML")
-    register_global_middlewares(dp, config)
-    await on_startup(bot, config.tg_bot.admin_ids)
-    return dp, bot
+    """
+    if config.tg_bot.use_redis:
+        return RedisStorage.from_url(
+            config.redis.dsn(),
+            key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True),
+        )
+    else:
+        return MemoryStorage()
 
 
 def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=None):
@@ -62,34 +55,37 @@ def register_global_middlewares(dp: Dispatcher, config: Config, session_pool=Non
         dp.callback_query.outer_middleware(middleware_type)
 
 
-def get_storage(config):
-    """
-    Return storage based on the provided configuration.
+def start_script():
+    config = load_config()
+    root_logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    if config.misc.app_env == 'yandex':
+        handler.setFormatter(YcLoggingFormatter('%(message)s %(level)s %(logger)s'))
+    if config.misc.app_env == 'local':
+        handler.setFormatter(bl.ColorizedFormatter(hide_lib_diagnose=False))
+    root_logger.addHandler(handler)
+    root_logger.propagate = False
+    root_logger.setLevel(logging.DEBUG)
+    storage = get_storage(config)
+    dp_instance = Dispatcher(storage=storage)
+    dp_instance.include_routers(*routers_list)
+    bot_instance = Bot(token=config.tg_bot.token, parse_mode="HTML")
+    register_global_middlewares(dp_instance, config)
+    return dp_instance, bot_instance
 
-    Args:
-        config (Config): The configuration object.
 
-    Returns:
-        Storage: The storage object based on the configuration.
-
-    """
-    if config.tg_bot.use_redis:
-        return RedisStorage.from_url(
-            config.redis.dsn(),
-            key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True),
-        )
-    else:
-        return MemoryStorage()
+# Инициализация диспетчера и бота и логирования
+dp, bot = start_script()
 
 
 async def main():
-    dp, bot = await start_script()
+    await set_main_menu(bot)
     await bot.delete_webhook()
     await dp.start_polling(bot)
 
 
 async def ya_handler(event, context) -> dict:
-    dp, bot = await start_script()
+    await set_main_menu(bot)
     tg_context: str = event['body']
     tg_context_dict = json.loads(tg_context)
     await dp.feed_raw_update(bot=bot, update=tg_context_dict)
