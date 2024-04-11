@@ -1,7 +1,7 @@
 include .env.local
 
 NGROK_DOMAIN_NAME=tortoise-integral-totally.ngrok-free.app
-YC=/home/andrew/yandex-cloud/bin/yc
+YC=/home/andrewerm/yandex-cloud/bin/yc
 API-NAME=test-yc-bot
 FUNC_NAME=test-yc-func-bot
 FUNC_INIT_NAME=test-yc-func-init
@@ -10,6 +10,7 @@ BOT_TOKEN_SECRET=e6qogk0nvce1cfcoopnf
 YA_WEATHER_TOKEN_SECRET=e6qdfn9d8n3l5476govp
 YA_GEO_TOKEN_SECRET=e6qchj74taa4dnn6oed6
 REDIS_PASSWORD_SECRET=e6qn4ub0u3c24kvitcpk
+YA_CHAT_GPT_SECRET=e6qeqj0b88vts48tlp8q
 WEBHOOK_URL=https://d5dc9bor4t8rikj6uf5b.apigw.yandexcloud.net
 WEBHOOK_PATH=/webhook
 BUCKET_NAME=tg-bot-bucket-010101
@@ -75,7 +76,8 @@ yc-func-version-create:
     --secret environment-variable=BOT_TOKEN,id=${BOT_TOKEN_SECRET},key=bot_token \
     --secret environment-variable=YA_WEATHER,id=${YA_WEATHER_TOKEN_SECRET},key=ya_weather_token \
     --secret environment-variable=YA_GEO,id=${YA_GEO_TOKEN_SECRET},key=ya_geo_token \
-    --secret environment-variable=REDIS_PASSWORD,id=${REDIS_PASSWORD_SECRET},key=redis_password
+    --secret environment-variable=REDIS_PASSWORD,id=${REDIS_PASSWORD_SECRET},key=redis_password \
+    --secret environment-variable=YA_CHAT_GPT,id=${YA_CHAT_GPT_SECRET},key=ya_chat_gpt
 
 yc-func-init-exec:
 	${YC} serverless function invoke --name ${FUNC_INIT_NAME}
@@ -131,6 +133,12 @@ yc-secret-create-ya-redis:
 	--name ya-redis-password \
 	--description "Пароль к redis" \
 	--payload "[{ 'key': 'redis_password', 'text_value': ${REDIS_PASSWORD}}]"
+
+yc-secret-create-ya-gpt:
+	${YC} lockbox secret create \
+	--name ya-chat-gpt \
+	--description "Api secret для GPT" \
+	--payload "[{ 'key': 'ya_chat_gpt', 'text_value': ${YA_CHAT_GPT}}]"
 
 yc-secret-list:
 	${YC} lockbox secret list
