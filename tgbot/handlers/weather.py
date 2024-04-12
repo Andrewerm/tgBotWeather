@@ -39,8 +39,6 @@ async def location_weather(message: Message, state: FSMContext):
 @weather_router.message(Command('weather'))
 async def get_weather_location(message: Message, state: FSMContext):
     user_data: dict = await state.get_data()
-    # получаем имя пользователя, если есть
-    user_name = user_data.get('profile_name', '')
     if user_data.get('coordinates'):
         coordinates: str = user_data['coordinates']
         # Десериализация строки обратно в объект
@@ -54,11 +52,11 @@ async def get_weather_location(message: Message, state: FSMContext):
         # Создаем объект InlineKeyboardMarkup и добавляем кнопку
         markup = InlineKeyboardMarkup(inline_keyboard=[[button_details]])
         await message.reply(
-            f"🧭 {user_name}, ты находишься: {defined_location.description}, {defined_location.name} \n"
+            f"🧭 {message.from_user.first_name}, ты находишься: {defined_location.description}, {defined_location.name} \n"
             f"Погода на текущий момент:\n"
             f"🌡️ фактическая температура: {weather_data.fact_temp},\n"
             f"🐱 по ощущению: {weather_data.fact_feels_like},\n"
             f"☀️ условия: {weather_data.fact_condition}\n",
             reply_markup=markup)
     else:
-        await message.reply(f"Сначала сообщи своё местоположение, {user_name}")
+        await message.reply(f"Сначала сообщи своё местоположение, {message.from_user.first_name}")
