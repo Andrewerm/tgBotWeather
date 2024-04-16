@@ -6,7 +6,7 @@ from infrastructure.some_api.ai_api import AiRequestCompletionOptions, AiMessage
 from tgbot import config
 
 ai_router = Router()
-ai_router.message.filter(F.text.startswith('Петя'))
+ai_router.message.filter(F.text)
 
 
 @ai_router.message(F.text)
@@ -14,12 +14,12 @@ async def promt_ai(message: Message, state: FSMContext):
     user_data: dict = await state.get_data()
     user_position = user_data.get('profile_profession', '')
     conf = config.load_config()
-    lenRobot = len('Петя')+1
-    completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.5)
-    messageSystem = AiMessage(role=Role.SYSTEM, text=f'Тебя спрашивает человек по имени: {message.from_user.first_name}, '
-                                                     f'род занятия которого: {user_position}. '
-                                                     f'Ответь на его вопрос')
-    messagesUser = AiMessage(role=Role.USER, text=message.text[lenRobot:])
+    # lenRobot = len('Петя')+1
+    completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.9)
+    messageSystem = AiMessage(role=Role.SYSTEM, text=f'Ты всезнающий человек по имени Пётр (Петя).'
+                                                     f'Тебе задаёт вопрос человек по имени: {message.from_user.first_name}. '
+                                                     f'Если он обратился к тебе по имени, то ответь на его вопрос, а иначе игнорируй'   )
+    messagesUser = AiMessage(role=Role.USER, text=message.text)
     ai_request = AiRequest(modelUri=conf.gpt.gpt_lite_uri, completionOptions=completionOptions,
                            messages=[messagesUser, messageSystem])
     ai_service = YandexChatGpt()

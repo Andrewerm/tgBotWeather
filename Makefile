@@ -1,3 +1,4 @@
+include .env
 include .env.local
 
 NGROK_DOMAIN_NAME=tortoise-integral-totally.ngrok-free.app
@@ -47,7 +48,7 @@ yc-func-info:
 	${YC} serverless function get --name=${FUNC_NAME}
 
 yc-func-init-version-create:
-	zip src.zip tg_set_webhook.py requirements.txt && \
+	zip -FSr src.zip tg_set_webhook.py requirements.txt && \
     ${YC} serverless function version create \
 	--function-name=${FUNC_INIT_NAME} \
     --runtime python312 \
@@ -61,18 +62,19 @@ yc-func-init-version-create:
     --secret environment-variable=BOT_TOKEN,id=${BOT_TOKEN_SECRET},key=bot_token
 
 yc-func-version-create:
-	zip -FSr tgBotWeather.zip .env .env.yandex requirements.txt bot.py tgbot infrastructure -x "*.pyc" && \
+	zip -FSr tgBotWeather.zip .env .env.yandex requirements.txt bot.py ydb_storage tgbot infrastructure -x "*.pyc" && \
 	aws s3 cp tgBotWeather.zip s3://${BUCKET_NAME} && \
 	${YC} serverless function version create \
 	--function-name=${FUNC_NAME} \
     --runtime python312 \
     --entrypoint bot.ya_handler \
     --memory 128m \
-    --execution-timeout 3s \
+    --execution-timeout 30s \
     --package-bucket-name ${BUCKET_NAME} \
     --package-object-name tgBotWeather.zip \
     --service-account-id ajenrq6dn3cjfqj9e5e7 \
     --environment APP_ENV=yandex \
+    --environment USE_METADATA_CREDENTIALS=1 \
     --secret environment-variable=BOT_TOKEN,id=${BOT_TOKEN_SECRET},key=bot_token \
     --secret environment-variable=YA_WEATHER,id=${YA_WEATHER_TOKEN_SECRET},key=ya_weather_token \
     --secret environment-variable=YA_GEO,id=${YA_GEO_TOKEN_SECRET},key=ya_geo_token \
@@ -165,7 +167,7 @@ check-tg-info:
 	curl --request GET -sL --url 'https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo' | jq '.result'
 
 yc-real-time-log:
-	${YC} logging read --follow  --levels info,warn,error
+	${YC} logging read --follow  --levels debug,info,warn,error
 
 yc-create-bucket:
 	${YC} storage bucket create \
@@ -181,8 +183,16 @@ yc-delete-bucket:
 
 
 yc-database-create:
-	yc ydb database create tg-db --serverless --description "БД для телеграмм - бота"
+	${YC} ydb database create tg-db --serverless --description "БД для телеграмм - бота"
 
+yc-database-get-info:
+	${YC} ydb database get --name ydb558
+
+yc-database-test:
+	${YC} ydb --endpoint $YDB_ENDPOINT \
+		  --database $YDB_DB_NAME \
+		  --sa-key-file $YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS \
+		  discovery whoami --groups
 
 redis-start:
 	docker run --name redic-cont --rm -p "6379:6379" -v redis:/data redis redis-server --save 60 1 --requirepass my-password

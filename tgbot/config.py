@@ -1,7 +1,8 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Literal
 
+import ydb
 from environs import Env
 
 
@@ -68,6 +69,9 @@ class DbConfig:
         )
 
 
+StorageType = Literal['redis', 'memory', 'yadb']
+
+
 @dataclass
 class TgBot:
     """
@@ -76,7 +80,7 @@ class TgBot:
 
     token: str
     admin_ids: list[int]
-    use_redis: bool
+    storage: StorageType
     webhook_url: Optional[str]
 
     @staticmethod
@@ -86,10 +90,10 @@ class TgBot:
         """
         token = env.str("BOT_TOKEN")
         admin_ids = env.list("ADMINS", subcast=int)
-        use_redis = env.bool("USE_REDIS")
+        storage = env.str("STORAGE")
         webhook_url = env("WEBHOOK_URL", default=None)
 
-        return TgBot(token=token, admin_ids=admin_ids, use_redis=use_redis, webhook_url=webhook_url)
+        return TgBot(token=token, admin_ids=admin_ids, storage=storage, webhook_url=webhook_url)
 
 
 @dataclass
@@ -132,6 +136,30 @@ class RedisConfig:
         return RedisConfig(
             redis_pass=redis_pass, redis_port=redis_port, redis_host=redis_host
         )
+
+
+@dataclass
+class YdbConfig:
+    db_config: ydb.DriverConfig
+
+    @staticmethod
+    def from_env(env: Env):
+        endpoint = env.str('YDB_ENDPOINT')
+        db_name = env.str('YDB_DB_NAME')
+        if env.str('APP_ENV') == 'yandex':
+            driver_config = ydb.DriverConfig(
+                endpoint,
+                db_name,
+                credentials=ydb.credentials_from_env_variables(),
+            )
+        else:
+            driver_config = ydb.DriverConfig(
+                endpoint,
+                db_name,
+                credentials=ydb.credentials_from_env_variables(),
+                root_certificates=ydb.load_ydb_root_certificate(),
+            )
+        return YdbConfig(db_config=driver_config)
 
 
 @dataclass
@@ -221,6 +249,7 @@ class Config:
     redis: Optional[RedisConfig] = None
     weather: Optional[WeatherServiceConfig] = None
     geo: Optional[GeoServiceConfig] = None
+    yadb: Optional[YdbConfig] = None
 
 
 def load_config() -> Config:
@@ -246,5 +275,6 @@ def load_config() -> Config:
         misc=Miscellaneous.from_env(env),
         weather=WeatherServiceConfig.from_env(env),
         geo=GeoServiceConfig.from_env(env),
-        gpt=YandexGptConfig.from_env(env)
+        gpt=YandexGptConfig.from_env(env),
+        yadb=YdbConfig.from_env(env)
     )
