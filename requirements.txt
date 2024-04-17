@@ -3,7 +3,7 @@ environs
 redis
 betterlogging
 python-json-logger
-aiogram_ydb_storage
+boto3
 
 # # For enabling api:
 backoff

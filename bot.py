@@ -13,7 +13,7 @@ from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services.logging_config import YcLoggingFormatter
-from ydb_storage import YDBStorage
+from ydb_storage.storage import YDBDocumentStorage
 
 
 def get_storage(config):
@@ -33,7 +33,7 @@ def get_storage(config):
             key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True),
         )
     elif config.tg_bot.storage == 'yadb':
-        return YDBStorage(driver_config=config.yadb.db_config)
+        return YDBDocumentStorage()
     else:
         return MemoryStorage()
 

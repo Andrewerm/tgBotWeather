@@ -1,26 +1,29 @@
 import asyncio
-from aiogram.fsm.storage.base import BaseStorage, StorageKey
-from aiogram.fsm.state import State
-from typing import Any, Dict, Optional
-
-import ydb
-import pickle
 import json
-
 import logging
+import pickle
+from typing import Any, Dict, Optional, Union
+
+import boto3
+import ydb  # type: ignore
+from aiogram.fsm.state import State
+from aiogram.fsm.storage.base import BaseStorage, StorageKey, StateType
+
+from tgbot.config import load_config
 
 logger = logging.getLogger(__name__)
+config = load_config()
 
 
 class YDBStorage(BaseStorage):
     """YDB storage for FSM"""
 
     def __init__(
-        self,
-        driver_config: ydb.DriverConfig = None,
-        session_pool: ydb.SessionPool = None,
-        serializing_method: str = "json",
-        table_name: str = "fsm_storage",
+            self,
+            driver_config: ydb.DriverConfig = None,
+            session_pool: ydb.SessionPool = None,
+            serializing_method: str = "json",
+            table_name: str = "fsm_storage",
     ) -> None:
 
         # Database
@@ -49,7 +52,7 @@ class YDBStorage(BaseStorage):
         Create a key for every uniqe user, chat and bot
         """
         result_string = (
-            str(key.bot_id) + ":" + str(key.chat_id) + ":" + str(key.user_id)
+                str(key.bot_id) + ":" + str(key.chat_id) + ":" + str(key.user_id)
         )
         return result_string
 
@@ -254,7 +257,7 @@ class YDBStorage(BaseStorage):
             return None
 
     async def update_data(
-        self, key: StorageKey, data: Dict[str, Any]
+            self, key: StorageKey, data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Update date in the storage for key (like dict.update)
@@ -277,3 +280,126 @@ class YDBStorage(BaseStorage):
 
         # logger.debug("FSM Storage database has been closed.")
         pass
+
+
+class YDBDocumentStorage(BaseStorage):
+    def __init__(
+            self,
+            serializing_method: str = "json",
+            table_name: str = "bot_fsm",
+    ) -> None:
+        database = boto3.resource(
+            'dynamodb',
+            endpoint_url=config.yadb.doc_api_endpoint,
+            region_name='ru-central1',
+            aws_access_key_id=config.yadb.aws_key,
+            aws_secret_access_key=config.yadb.aws_secret
+        )
+        self.session = database.Table(table_name)
+        # Settings
+        self.table_name = table_name
+
+        self.serializing_method = serializing_method
+        if self.serializing_method != "pickle" and self.serializing_method != "json":
+            self.serializing_method = "json"
+
+    def _key(self, key: StorageKey) -> str:
+        """
+        Create a key for every uniqe user, chat and bot
+        """
+        result_string = (
+                str(key.bot_id) + ":" + str(key.chat_id) + ":" + str(key.user_id)
+        )
+        return result_string
+
+    def _ser(self, obj: object) -> Union[str, bytes, None]:
+        """
+        Serialize object
+        """
+        try:
+            match self.serializing_method:
+                case "pickle":
+                    return pickle.dumps(obj)
+                case "json" | _:
+                    return json.dumps(obj)
+        except Exception as e:
+            logger.error(f"Serializing error! {e}")
+            return None
+
+    def _dsr(self, obj) -> Optional[Dict[str, Any]]:
+        """
+        Deserialize object
+        """
+        try:
+            match self.serializing_method:
+                case "pickle":
+                    return pickle.loads(obj) if obj else None
+                case "json" | _:
+                    return json.loads(obj) if obj else None
+        except Exception as e:
+            logger.error(
+                f"Deserializing error! Probably, unsupported serializing method was used. {e}"
+            )
+            return None
+
+    async def set_data(self, key: StorageKey, data: Dict[str, Any]) -> None:
+        """
+        Write data (replace)
+
+        :param key: storage key
+        :param data: new data
+        """
+        s_key = self._key(key)
+        s_data = self._ser(data)
+        response = self.session.put_item(Item={'key': s_key, 'data': s_data})
+        logger.debug(response)
+
+    async def close(self) -> None:
+        pass
+
+    async def get_data(self, key: StorageKey) -> Dict[str, Any]:
+        """
+        Get key state
+
+        :param key: storage key
+        :return: current state
+        """
+        s_key = self._key(key)
+        response = self.session.get_item(Key={
+            'key': {'S': s_key}
+        })
+        if 'Item' in response:
+            resp = json.dumps(response['Item'], indent=4)
+            return self._dsr(resp)
+        else:
+            return dict()
+
+    async def get_state(self, key: StorageKey) -> Optional[str]:
+        """
+        Get key state
+
+        :param key: storage key
+        :return: current state
+        """
+        s_key = self._key(key)
+        response = self.session.get_item(Key={
+            'key': {'S': s_key}
+        })
+        if 'Item' in response:
+            resp = json.dumps(response['Item'], indent=4)
+            return self._dsr(resp)
+        else:
+            return None
+
+    async def set_state(self, key: StorageKey, state: StateType = None) -> None:
+        """
+        Set state for specified key
+
+        :param key: storage key
+        :param state: new state
+        """
+        s_key = self._key(key)
+        s_state = state.state if isinstance(state, State) else state
+        s_state = s_state if s_state else ""
+        response = self.session.put_item(Item={'key': s_key, 'state': s_state})
+        logger.debug(response)

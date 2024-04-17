@@ -141,11 +141,17 @@ class RedisConfig:
 @dataclass
 class YdbConfig:
     db_config: ydb.DriverConfig
+    aws_key: str
+    aws_secret: str
+    doc_api_endpoint: str
 
     @staticmethod
     def from_env(env: Env):
         endpoint = env.str('YDB_ENDPOINT')
         db_name = env.str('YDB_DB_NAME')
+        aws_key = env.str('YDB_SERVICE_ACCOUNT_AWS_KEY')
+        aws_secret = env.str('YDB_SERVICE_ACCOUNT_AWS_SECRET')
+        doc_api_endpoint = env.str('YDB_DOCUMENT_API_ENDPOINT')
         if env.str('APP_ENV') == 'yandex':
             driver_config = ydb.DriverConfig(
                 endpoint,
@@ -159,7 +165,8 @@ class YdbConfig:
                 credentials=ydb.credentials_from_env_variables(),
                 root_certificates=ydb.load_ydb_root_certificate(),
             )
-        return YdbConfig(db_config=driver_config)
+        return YdbConfig(db_config=driver_config, aws_key=aws_key, aws_secret=aws_secret,
+                         doc_api_endpoint=doc_api_endpoint)
 
 
 @dataclass
@@ -245,11 +252,12 @@ class Config:
     tg_bot: TgBot
     misc: Miscellaneous
     gpt: YandexGptConfig
+    yadb: YdbConfig
     db: Optional[DbConfig] = None
     redis: Optional[RedisConfig] = None
     weather: Optional[WeatherServiceConfig] = None
     geo: Optional[GeoServiceConfig] = None
-    yadb: Optional[YdbConfig] = None
+
 
 
 def load_config() -> Config:
