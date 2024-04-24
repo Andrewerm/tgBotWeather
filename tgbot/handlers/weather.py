@@ -38,7 +38,7 @@ async def location_weather(message: Message, state: FSMContext):
 
 @weather_router.message(Command('weather'))
 async def get_weather_location(message: Message, state: FSMContext):
-    user_data: dict = await state.get_data()
+    user_data = await state.get_data()
     if user_data.get('coordinates'):
         coordinates: str = user_data['coordinates']
         # Десериализация строки обратно в объект

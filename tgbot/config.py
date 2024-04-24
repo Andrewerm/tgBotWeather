@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Literal
 
-import ydb
+import ydb  # type: ignore
 from environs import Env
 
 

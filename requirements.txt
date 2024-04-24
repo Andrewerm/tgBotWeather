@@ -4,6 +4,7 @@ redis
 betterlogging
 python-json-logger
 boto3
+ydb
 
 # # For enabling api:
 backoff
@@ -18,4 +19,4 @@ yarl
 typing_extensions
 aiohttp
 yarl~=1.9
-pytest
+# pytest

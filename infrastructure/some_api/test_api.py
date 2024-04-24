@@ -29,8 +29,8 @@ async def test_ya_geo_api():
 async def test_ya_gpt():
     conf = config.load_config()
     completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0)
-    messageSystem = AiMessage(role=Role.SYSTEM, text='Ты пятилетний ребёнок и ответь на вопрос')
-    messagesUser = AiMessage(role=Role.USER, text='Чем похожи python и PHP языки')
+    messageSystem = AiMessage(role=Role.SYSTEM, text='Ты учитель литературы')
+    messagesUser = AiMessage(role=Role.USER, text='Расскажи чем между собой похожи братья Карамазовы')
     ai_request = AiRequest(modelUri=conf.gpt.gpt_lite_uri, completionOptions=completionOptions,
                            messages=[messagesUser, messageSystem])
     ai_service = YandexChatGpt()

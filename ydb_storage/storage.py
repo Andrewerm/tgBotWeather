@@ -2,12 +2,13 @@ import asyncio
 import json
 import logging
 import pickle
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 
 import boto3
 import ydb  # type: ignore
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.base import BaseStorage, StorageKey, StateType
+from botocore.exceptions import ClientError
 
 from tgbot.config import load_config
 
@@ -16,8 +17,7 @@ config = load_config()
 
 
 class YDBStorage(BaseStorage):
-    """YDB storage for FSM"""
-
+    """ YDB хранилище в реляционной таблице через YDB SDK """
     def __init__(
             self,
             driver_config: ydb.DriverConfig = None,
@@ -283,25 +283,71 @@ class YDBStorage(BaseStorage):
 
 
 class YDBDocumentStorage(BaseStorage):
+    """ YDB хранилище в документной таблице через AWS SDK """
     def __init__(
             self,
             serializing_method: str = "json",
             table_name: str = "bot_fsm",
     ) -> None:
-        database = boto3.resource(
+        self.resource = boto3.resource(
             'dynamodb',
             endpoint_url=config.yadb.doc_api_endpoint,
             region_name='ru-central1',
             aws_access_key_id=config.yadb.aws_key,
-            aws_secret_access_key=config.yadb.aws_secret
-        )
-        self.session = database.Table(table_name)
-        # Settings
+            aws_secret_access_key=config.yadb.aws_secret)
+        self.client = self.resource.meta.client
+
         self.table_name = table_name
+        if self.table_exists():
+            self.table = self.resource.Table(table_name)
+        else:
+            self.table = self.create_new_table()
 
         self.serializing_method = serializing_method
         if self.serializing_method != "pickle" and self.serializing_method != "json":
             self.serializing_method = "json"
+
+    def table_exists(self) -> bool:
+        """
+        Проверяем наличие таблицы
+        Returns: bool
+        """
+        existing_tables: Dict[str, List[str]] = self.client.list_tables()
+
+        return self.table_name in existing_tables['TableNames']
+
+    def create_new_table(self):
+        """
+        Создаём таблицу
+        Returns:
+
+        """
+        table = self.resource.create_table(
+            TableName=self.table_name,
+            KeySchema=[
+                {
+                    'AttributeName': 'key',
+                    'KeyType': 'HASH'  # Ключ партицирования
+                }
+            ],
+            AttributeDefinitions=[
+                {
+                    'AttributeName': 'key',
+                    'AttributeType': 'S'  # Строка
+                },
+                {
+                    'AttributeName': 'state',
+                    'AttributeType': 'S'  # Строка
+                },
+                {
+                    'AttributeName': 'data',
+                    'AttributeType': 'S'  # Строка
+                }
+            ]
+        )
+        # Wait until the table exists.
+        table.wait_until_exists()
+        return table
 
     def _key(self, key: StorageKey) -> str:
         """
@@ -351,13 +397,21 @@ class YDBDocumentStorage(BaseStorage):
         """
         s_key = self._key(key)
         s_data = self._ser(data)
-        response = self.session.put_item(Item={'key': s_key, 'data': s_data})
+        response = self.table.update_item(
+            Key={
+                'key': s_key
+            },
+            UpdateExpression='SET data = :val',
+            ExpressionAttributeValues={
+                ':val': s_data
+            }
+        )
         logger.debug(response)
 
     async def close(self) -> None:
         pass
 
-    async def get_data(self, key: StorageKey) -> Dict[str, Any]:
+    async def get_data(self, key: StorageKey) -> Optional[Dict[str, Any]]:
         """
         Get key state
 
@@ -365,14 +419,18 @@ class YDBDocumentStorage(BaseStorage):
         :return: current state
         """
         s_key = self._key(key)
-        response = self.session.get_item(Key={
-            'key': {'S': s_key}
-        })
-        if 'Item' in response:
-            resp = json.dumps(response['Item'], indent=4)
-            return self._dsr(resp)
-        else:
-            return dict()
+        try:
+            response: dict[str, Any] = self.table.get_item(Key={
+                'key': s_key
+            })
+            item = response.get('Item')
+            if item and (state := item.get('data')):
+                # resp = json.dumps(state, indent=4)
+                return self._dsr(state)
+            else:
+                return None
+        except ClientError as e:
+            logger.error(msg='ClientError in get_data')
 
     async def get_state(self, key: StorageKey) -> Optional[str]:
         """
@@ -382,14 +440,17 @@ class YDBDocumentStorage(BaseStorage):
         :return: current state
         """
         s_key = self._key(key)
-        response = self.session.get_item(Key={
-            'key': {'S': s_key}
-        })
-        if 'Item' in response:
-            resp = json.dumps(response['Item'], indent=4)
-            return self._dsr(resp)
-        else:
-            return None
+        try:
+            response: dict[str, Any] = self.table.get_item(Key={
+                'key': s_key
+            })
+            item = response.get('Item')
+            if item and (state := item.get('state')):
+                return state
+            else:
+                return None
+        except ClientError as e:
+            logger.error(msg='ClientError in get_data')
 
     async def set_state(self, key: StorageKey, state: StateType = None) -> None:
         """
@@ -401,5 +462,14 @@ class YDBDocumentStorage(BaseStorage):
         s_key = self._key(key)
         s_state = state.state if isinstance(state, State) else state
         s_state = s_state if s_state else ""
-        response = self.session.put_item(Item={'key': s_key, 'state': s_state})
+        response = self.table.update_item(
+            Key={
+                'key': s_key
+            },
+            UpdateExpression='SET state = :val',
+            ExpressionAttributeValues={
+                ':val': s_state
+            }
+        )
+
         logger.debug(response)
