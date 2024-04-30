@@ -75,7 +75,7 @@ def start_script():
     storage = get_storage(config)
     dp_instance = Dispatcher(storage=storage)
     dp_instance.include_routers(*routers_list)
-    bot_instance = Bot(token=config.tg_bot.token, parse_mode="HTML")
+    bot_instance = Bot(token=config.tg_bot.token)
     register_global_middlewares(dp_instance, config)
     return dp_instance, bot_instance
 

@@ -3,11 +3,14 @@ from aiogram.filters import StateFilter, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from tgbot.config import load_config
 from tgbot.keyboards.profile import keyboard_cancel
 from tgbot.misc.callback import ProfileNameCallback
 from tgbot.misc.states import ProfileFSM
 
 profile_router = Router()
+
+config = load_config()
 
 
 @profile_router.message(CommandStart())
@@ -33,7 +36,8 @@ async def set_profession(message: Message, state: FSMContext) -> None:
     """ Принимает профессию пользователя """
     profession = message.text
     await state.update_data({'profile_profession': profession})
-    await message.reply(f"Круто! А я робот 🤖")
+    name = config.tg_bot.bot_names[0]
+    await message.reply(f"Круто! А я робот {name} 🤖")
     await state.set_state(ProfileFSM.filled)
 
 

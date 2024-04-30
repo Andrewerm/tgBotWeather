@@ -82,6 +82,7 @@ class TgBot:
     admin_ids: list[int]
     storage: StorageType
     webhook_url: Optional[str]
+    bot_names: list[str]
 
     @staticmethod
     def from_env(env: Env):
@@ -92,8 +93,9 @@ class TgBot:
         admin_ids = env.list("ADMINS", subcast=int)
         storage = env.str("STORAGE")
         webhook_url = env("WEBHOOK_URL", default=None)
+        bot_names = env.list("BOT_NAMES", default=[], subcast=str)
 
-        return TgBot(token=token, admin_ids=admin_ids, storage=storage, webhook_url=webhook_url)
+        return TgBot(token=token, admin_ids=admin_ids, storage=storage, webhook_url=webhook_url, bot_names=bot_names)
 
 
 @dataclass
