@@ -28,6 +28,10 @@ class YDBStorage(BaseStorage):
 
         # Database
         self.driver = ydb.Driver(driver_config) if driver_config else None
+
+        # Wait for the driver to become active for requests
+        self.driver.wait(fail_fast=True, timeout=5)
+
         # self.driver_ = ydb.aio.Driver(driver_config)
 
         self.session_pool = (

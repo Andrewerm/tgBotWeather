@@ -13,7 +13,7 @@ from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services.logging_config import YcLoggingFormatter
-from ydb_storage.storage import YDBDocumentStorage
+from ydb_storage.storage import YDBDocumentStorage, YDBStorage
 
 
 def get_storage(config) -> BaseStorage:
@@ -32,8 +32,10 @@ def get_storage(config) -> BaseStorage:
             config.redis.dsn(),
             key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True),
         )
-    elif config.tg_bot.storage == 'yadb':
+    elif config.tg_bot.storage == 'yadb_document':
         return YDBDocumentStorage()
+    elif config.tg_bot.storage == 'yadb_table':
+        return YDBStorage(driver_config=config.yadb.db_config)
     else:
         return MemoryStorage()
 
@@ -104,17 +106,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.error("Бот остановлен!")
-
-    # driver_config = ydb.DriverConfig(
-    #     'grpcs://ydb.serverless.yandexcloud.net:2135', '/ru-central1/b1g8130k4vibp9h9vg5q/etnste7l5gupmqs8ljrc',
-    #     credentials=ydb.credentials_from_env_variables(),
-    #     root_certificates=ydb.load_ydb_root_certificate(),
-    # )
-    # print(driver_config)
-    # with ydb.Driver(driver_config) as driver:
-    #     try:
-    #         driver.wait(timeout=15)
-    #     except TimeoutError:
-    #         print("Connect failed to YDB")
-    #         print("Last reported errors by discovery:")
-    #         print(driver.discovery_debug_details())
