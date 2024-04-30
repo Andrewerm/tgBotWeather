@@ -4,9 +4,9 @@ import logging
 
 import betterlogging as bl  # type: ignore
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
-
 
 from tgbot.config import load_config, Config
 from tgbot.handlers import routers_list
@@ -16,7 +16,7 @@ from tgbot.services.logging_config import YcLoggingFormatter
 from ydb_storage.storage import YDBDocumentStorage
 
 
-def get_storage(config):
+def get_storage(config) -> BaseStorage:
     """
     Return storage based on the provided configuration.
 
@@ -105,7 +105,6 @@ if __name__ == "__main__":
     except (KeyboardInterrupt, SystemExit):
         logging.error("Бот остановлен!")
 
-
     # driver_config = ydb.DriverConfig(
     #     'grpcs://ydb.serverless.yandexcloud.net:2135', '/ru-central1/b1g8130k4vibp9h9vg5q/etnste7l5gupmqs8ljrc',
     #     credentials=ydb.credentials_from_env_variables(),
@@ -119,4 +118,3 @@ if __name__ == "__main__":
     #         print("Connect failed to YDB")
     #         print("Last reported errors by discovery:")
     #         print(driver.discovery_debug_details())
-

@@ -12,6 +12,7 @@ YA_WEATHER_TOKEN_SECRET=e6qdfn9d8n3l5476govp
 YA_GEO_TOKEN_SECRET=e6qchj74taa4dnn6oed6
 REDIS_PASSWORD_SECRET=e6qn4ub0u3c24kvitcpk
 YA_CHAT_GPT_SECRET=e6qeqj0b88vts48tlp8q
+AWS_TOKEN_SECRET=e6q6il23oclqsof3kv59
 WEBHOOK_URL=https://d5dc9bor4t8rikj6uf5b.apigw.yandexcloud.net
 WEBHOOK_PATH=/webhook
 BUCKET_NAME=tg-bot-bucket-010101
@@ -68,18 +69,18 @@ yc-func-version-create:
 	--function-name=${FUNC_NAME} \
     --runtime python312 \
     --entrypoint bot.ya_handler \
-    --memory 128m \
+    --memory 256m \
     --execution-timeout 30s \
     --package-bucket-name ${BUCKET_NAME} \
     --package-object-name tgBotWeather.zip \
     --service-account-id ajenrq6dn3cjfqj9e5e7 \
     --environment APP_ENV=yandex \
-    --environment USE_METADATA_CREDENTIALS=1 \
     --secret environment-variable=BOT_TOKEN,id=${BOT_TOKEN_SECRET},key=bot_token \
     --secret environment-variable=YA_WEATHER,id=${YA_WEATHER_TOKEN_SECRET},key=ya_weather_token \
     --secret environment-variable=YA_GEO,id=${YA_GEO_TOKEN_SECRET},key=ya_geo_token \
-    --secret environment-variable=REDIS_PASSWORD,id=${REDIS_PASSWORD_SECRET},key=redis_password \
-    --secret environment-variable=YA_CHAT_GPT,id=${YA_CHAT_GPT_SECRET},key=ya_chat_gpt
+    --secret environment-variable=YA_CHAT_GPT,id=${YA_CHAT_GPT_SECRET},key=ya_chat_gpt \
+    --secret environment-variable=AWS_ACCESS_KEY_ID,id=${AWS_TOKEN_SECRET},key=aws-key \
+    --secret environment-variable=AWS_SECRET_ACCESS_KEY,id=${AWS_TOKEN_SECRET},key=aws-secret
 
 yc-func-init-exec:
 	${YC} serverless function invoke --name ${FUNC_INIT_NAME}
@@ -113,9 +114,9 @@ yc-service-account-info:
 
 yc-secret-create-bot-token:
 	${YC} lockbox secret create \
-	--name bot-token \
-	--description "Токен телеграмм бота" \
-	--payload "[{ 'key': 'bot_token', 'text_value': ${BOT_TOKEN}}]"
+	--name aws-credentials \
+	--description "Ключ для AWS " \
+	--payload "[{ 'key': 'aws-key', 'text_value': ${YDB_SERVICE_ACCOUNT_AWS_KEY}}, { 'key': 'aws-secret', 'text_value': ${YDB_SERVICE_ACCOUNT_AWS_SECRET}}]"
 
 
 yc-secret-create-ya-weather:

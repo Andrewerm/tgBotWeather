@@ -8,7 +8,6 @@ import boto3
 import ydb  # type: ignore
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.base import BaseStorage, StorageKey, StateType
-from botocore.exceptions import ClientError
 
 from tgbot.config import load_config
 
@@ -18,6 +17,7 @@ config = load_config()
 
 class YDBStorage(BaseStorage):
     """ YDB хранилище в реляционной таблице через YDB SDK """
+
     def __init__(
             self,
             driver_config: ydb.DriverConfig = None,
@@ -284,6 +284,7 @@ class YDBStorage(BaseStorage):
 
 class YDBDocumentStorage(BaseStorage):
     """ YDB хранилище в документной таблице через AWS SDK """
+
     def __init__(
             self,
             serializing_method: str = "json",
@@ -293,16 +294,13 @@ class YDBDocumentStorage(BaseStorage):
             'dynamodb',
             endpoint_url=config.yadb.doc_api_endpoint,
             region_name='ru-central1',
-            aws_access_key_id=config.yadb.aws_key,
-            aws_secret_access_key=config.yadb.aws_secret)
+        )
         self.client = self.resource.meta.client
-
         self.table_name = table_name
         if self.table_exists():
             self.table = self.resource.Table(table_name)
         else:
             self.table = self.create_new_table()
-
         self.serializing_method = serializing_method
         if self.serializing_method != "pickle" and self.serializing_method != "json":
             self.serializing_method = "json"
@@ -390,8 +388,6 @@ class YDBDocumentStorage(BaseStorage):
 
     async def set_data(self, key: StorageKey, data: Dict[str, Any]) -> None:
         """
-        Write data (replace)
-
         :param key: storage key
         :param data: new data
         """
@@ -411,7 +407,7 @@ class YDBDocumentStorage(BaseStorage):
     async def close(self) -> None:
         pass
 
-    async def get_data(self, key: StorageKey) -> Optional[Dict[str, Any]]:
+    async def get_data(self, key: StorageKey) -> Dict[str, Any]:
         """
         Get key state
 
@@ -419,18 +415,14 @@ class YDBDocumentStorage(BaseStorage):
         :return: current state
         """
         s_key = self._key(key)
-        try:
-            response: dict[str, Any] = self.table.get_item(Key={
-                'key': s_key
-            })
-            item = response.get('Item')
-            if item and (state := item.get('data')):
-                # resp = json.dumps(state, indent=4)
-                return self._dsr(state)
-            else:
-                return None
-        except ClientError as e:
-            logger.error(msg='ClientError in get_data')
+        response: dict[str, Any] = self.table.get_item(Key={
+            'key': s_key
+        })
+        item = response.get('Item')
+        if item and (state := item.get('data')):
+            if deser_data := self._dsr(state):
+                return deser_data
+        raise Exception('Ответ get_data содержит неверную структуру')
 
     async def get_state(self, key: StorageKey) -> Optional[str]:
         """
@@ -440,17 +432,14 @@ class YDBDocumentStorage(BaseStorage):
         :return: current state
         """
         s_key = self._key(key)
-        try:
-            response: dict[str, Any] = self.table.get_item(Key={
-                'key': s_key
-            })
-            item = response.get('Item')
-            if item and (state := item.get('state')):
-                return state
-            else:
-                return None
-        except ClientError as e:
-            logger.error(msg='ClientError in get_data')
+        response: dict[str, Any] = self.table.get_item(Key={
+            'key': s_key
+        })
+        item = response.get('Item')
+        if item and (state := item.get('state')):
+            return state
+        else:
+            return None
 
     async def set_state(self, key: StorageKey, state: StateType = None) -> None:
         """
@@ -462,7 +451,7 @@ class YDBDocumentStorage(BaseStorage):
         s_key = self._key(key)
         s_state = state.state if isinstance(state, State) else state
         s_state = s_state if s_state else ""
-        response = self.table.update_item(
+        self.table.update_item(
             Key={
                 'key': s_key
             },
@@ -471,5 +460,3 @@ class YDBDocumentStorage(BaseStorage):
                 ':val': s_state
             }
         )
-
-        logger.debug(response)
