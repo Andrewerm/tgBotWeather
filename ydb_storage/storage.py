@@ -149,7 +149,7 @@ class YDBStorage(BaseStorage):
         except BaseException as e:
             logger.error(f"FSM Storage error: {e}")
 
-    async def set_state(self, key: StorageKey, state: State | None = None) -> None:
+    async def set_state(self, key: StorageKey, state: str| State | None = None) -> None:
         """
         Set state for specified key
 
@@ -213,12 +213,12 @@ class YDBStorage(BaseStorage):
         :param data: new data
         """
         s_key = self._key(key)
-        s_data = self._ser(data)
+        # s_data = self._ser(data)
 
         try:
             query = f"""
                     DECLARE $k AS Utf8;
-                    DECLARE $d AS Utf8;
+                    DECLARE $d AS Json;
                     UPSERT INTO `{self.table_name}` (`key`, `data`)
                     VALUES ($k, $d)
                     """
@@ -226,7 +226,7 @@ class YDBStorage(BaseStorage):
                 query,
                 {
                     "$k": s_key,
-                    "$d": s_data,
+                    "$d": data,
                 },
             )
         except BaseException as e:
@@ -254,7 +254,7 @@ class YDBStorage(BaseStorage):
                 },
             )
 
-            return self._dsr(result[0].rows[0].get("data")) if result[0].rows else None
+            return result[0].rows[0].get("data") if result[0].rows else None
 
         except BaseException as e:
             logger.error(f"FSM Storage error: {e}")

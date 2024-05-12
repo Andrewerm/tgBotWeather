@@ -32,7 +32,7 @@ async def location_weather(message: Message, state: FSMContext):
         # Сериализация объекта в строку
         serialized_coordinate = json.dumps(coordinates.__dict__)
         # сохраняем данные сессии пользователя
-        await state.update_data({'coordinates': serialized_coordinate})
+        await state.update_data({'coordinates': coordinates.__dict__})
         await get_weather_location(message, state)
 
 

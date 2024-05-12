@@ -35,7 +35,7 @@ def get_storage(config) -> BaseStorage:
     elif config.tg_bot.storage == 'yadb_document':
         return YDBDocumentStorage()
     elif config.tg_bot.storage == 'yadb_table':
-        return YDBStorage(driver_config=config.yadb.db_config)
+        return YDBStorage(driver_config=config.yadb.db_config, serializing_method='json')
     else:
         return MemoryStorage()
 
