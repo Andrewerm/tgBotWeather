@@ -4,7 +4,6 @@ from aiogram.types import Message
 
 from infrastructure.some_api.ai_api import YandexChatGpt
 from tgbot.filters.bot_name import BotNameFilter, IsNotGroup
-from tgbot.services import ai
 from tgbot.services.ai import AiRequestBuilder
 
 ai_router = Router()
@@ -19,23 +18,17 @@ async def promt_ai(message: Message, state: FSMContext) -> None:
     if message.text:
         builder = AiRequestBuilder(state, message)
 
-        # user_data = await state.get_data()
-        # user_position = user_data.get(ProfileDictEnum.POSITION.value, '') if user_data else None
-        # user_chat_content=user_data.get(ProfileDictEnum.CHAT_HISTORY.value, '') if user_data else None
-        # conf = config.load_config()
-        # completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.9)
+        # получение подготовленного запроса
+        requestMessage = await builder.get_result()
 
-        # messageSystem = AiMessage(role=Role.SYSTEM, text=setAnswer)
-
-        # messagesUser = AiMessage(role=Role.USER, text=message.text + '?')
-        # ai_request = AiRequest(modelUri=conf.gpt.gpt_lite_uri, completionOptions=completionOptions,
-        #                        messages=[messagesUser, messageSystem])
-
-        await builder.set_system_role()
-        requestMessage = builder.get_result()
-        # ai_request = await ai.chat_preparing(state, message)
-        # ai_request_new = ai.chat_add_request(ai_request, requestMessage)
+        # запрос в GPT
         yandex_ai_service = YandexChatGpt()
         result = await yandex_ai_service.do_request(requestMessage)
-        await ai.save_chat_history(requestMessage, result.alternatives[0], state)
+        # сохранение ответа в историю
+        requestMessage.messages.append(result.alternatives[0].message)
+
+        # сохранение истории чата в storage
+        await builder.save_history_to_storage()
+
+        # requestMessage.messages.append(AiMessage(text=result.alternatives[0], role=Role.USER))
         await message.reply(result.alternatives[0].message.text)

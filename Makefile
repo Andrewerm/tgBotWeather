@@ -2,7 +2,7 @@ include .env
 include .env.local
 
 NGROK_DOMAIN_NAME=tortoise-integral-totally.ngrok-free.app
-YC=/home/andrewerm/yandex-cloud/bin/yc
+YC=/home/andrew/yandex-cloud/bin/yc
 API-NAME=test-yc-bot
 FUNC_NAME=test-yc-func-bot
 FUNC_INIT_NAME=test-yc-func-init

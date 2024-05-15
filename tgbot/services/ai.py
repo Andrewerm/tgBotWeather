@@ -3,8 +3,7 @@ from typing import Optional, Any
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from infrastructure.some_api.ai_api import AiRequest, AiMessage, Role, AiRequestCompletionOptions, \
-    AiResponseAlternatives
+from infrastructure.some_api.ai_api import AiRequest, AiMessage, Role, AiRequestCompletionOptions
 from tgbot import config
 from tgbot.misc.profile import ProfileDictEnum
 
@@ -16,15 +15,18 @@ class AiRequestBuilder:
     _ai_request: AiRequest
     _state: FSMContext
     _message: Message
+    _user_question: str
     _user_data: Optional[dict[str, Any]] = None
     _system_role_message: AiMessage
+    _chat_history: list[dict[str, str]] = []
 
     def __init__(self, state: FSMContext, message: Message):
         self._config = config.load_config()
         self._state = state
         self._message = message
-        completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.9)
-        # messageBuild = [messageSystem] + content if content else [messageSystem]
+        if message.text:
+            self._user_question = message.text
+        completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.7)
         self._ai_request = AiRequest(modelUri=conf.gpt.gpt_lite_uri, completionOptions=completionOptions,
                                      messages=[])
 
@@ -53,6 +55,13 @@ class AiRequestBuilder:
         self._add_finish_instructions()
         self._system_role_message = AiMessage(role=Role.SYSTEM, text=self._request)
 
+    async def restore_history_chat(self) -> None:
+        user_data = await self._get_user_data()
+        if user_data and (history := user_data.get(ProfileDictEnum.CHAT_HISTORY.value)):
+            self._ai_request.messages = [AiMessage(role=Role(key), text=value) for item in history for key, value in
+                                         item.items()]
+        self._ai_request.messages.append(AiMessage(role=Role.USER, text=self._user_question))
+
     def _add_start_instructions(self) -> None:
         self._request += f'Мы с тобой делаем собеседника для общения в телеграмм. \n'
         'Твои ответы должны быть максимально похожи на разговорную речь.\n'
@@ -70,49 +79,22 @@ class AiRequestBuilder:
 
     def _add_asker_position(self, position: Optional[str]):
         if position:
-            self._request += f'Задающиё вопрос по роду занятий: {position}.'
+            self._request += f'Задающий вопрос имеет род занятий: {position}.'
 
     def _add_bot_names(self) -> None:
         self._request += f'Твои имена: {", ".join(self._config.tg_bot.bot_names)}. '
 
-    def get_result(self) -> AiRequest:
-        self._ai_request.messages = [self._system_role_message]
+    async def get_result(self) -> AiRequest:
+        # установка системной роли
+        await self.set_system_role()
+        # восстановление истории чата
+        await self.restore_history_chat()
+        # вставляем системную роль
+        self._ai_request.messages.insert(0, self._system_role_message)
+
         return self._ai_request
 
-
-async def get_chat_content(state: FSMContext):
-    user_data = await state.get_data()
-    content = user_data.get(ProfileDictEnum.CHAT_HISTORY.value, '') if user_data else None
-
-
-async def chat_preparing(state: FSMContext, message: Message) -> AiRequest:
-    user_data = await state.get_data()
-    nick, user_position, content = None, None, None
-    if user_data:
-        user_nick = user_data.get(ProfileDictEnum.NICK.value)
-        nick = user_nick if user_nick else message.from_user.first_name if message.from_user else None
-        user_position = user_data.get(ProfileDictEnum.POSITION.value)
-        content: Optional[list[AiMessage]] = user_data.get(ProfileDictEnum.CHAT_HISTORY.value)  # type: ignore
-
-    # if user_position:
-    #     setAnswer = f'{setAnswer}Его профессия: {user_position}. '
-    # setAnswer = (f'{setAnswer} Ответь его на вопрос прямой речью в стиле человека, который просидел много лет в '
-    #              f'тюрьме. Дай только один вариант ответа.')
-    # messageSystem = AiMessage(role=Role.SYSTEM, text=setAnswer)
-    completionOptions = AiRequestCompletionOptions(stream=False, maxTokens=2000, temperature=0.9)
-    # messageBuild = [messageSystem] + content if content else [messageSystem]
-    # request = AiRequest(modelUri=conf.gpt.gpt_lite_uri, completionOptions=completionOptions,
-    #                     messages=messageBuild)
-
-    # return request
-
-
-def chat_add_request(request: AiRequest, new_message: AiMessage) -> AiRequest:
-    request.messages.append(new_message)
-    return request
-
-
-async def save_chat_history(request: AiRequest, answer: AiResponseAlternatives, state: FSMContext) -> None:
-    request.messages.append(answer.message)
-    without_system = list(filter(lambda x: x.role != Role.SYSTEM, request.messages))
-    await state.update_data({ProfileDictEnum.CHAT_HISTORY.value: without_system})
+    async def save_history_to_storage(self):
+        without_system = list(filter(lambda x: x.role != Role.SYSTEM, self._ai_request.messages))
+        dict_prepare = [{x.role.value: x.text} for x in without_system]
+        await self._state.update_data({ProfileDictEnum.CHAT_HISTORY.value: dict_prepare})

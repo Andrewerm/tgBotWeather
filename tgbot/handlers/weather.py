@@ -8,6 +8,7 @@ from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from infrastructure.some_api.geo_api import YaGeoApi, YaGeoDto
 from infrastructure.some_api.weather_api import YaWeatherApi, Coordinate, WeatherDto
 from tgbot.config import load_config
+from tgbot.misc.profile import ProfileDictEnum
 
 weather_router = Router()
 
@@ -32,15 +33,14 @@ async def location_weather(message: Message, state: FSMContext):
         # Сериализация объекта в строку
         serialized_coordinate = json.dumps(coordinates.__dict__)
         # сохраняем данные сессии пользователя
-        await state.update_data({'coordinates': coordinates.__dict__})
+        await state.update_data({ProfileDictEnum.GEO.value: serialized_coordinate})
         await get_weather_location(message, state)
 
 
 @weather_router.message(Command('weather'))
 async def get_weather_location(message: Message, state: FSMContext):
     user_data = await state.get_data()
-    if user_data and message and user_data.get('coordinates'):
-        coordinates: str = user_data['coordinates']
+    if user_data and message and (coordinates := user_data.get(ProfileDictEnum.GEO.value)):
         # Десериализация строки обратно в объект
         deserialized_dto: dict = json.loads(coordinates)
         coord_dto = Coordinate(latitude=deserialized_dto['latitude'], longitude=deserialized_dto['longitude'])

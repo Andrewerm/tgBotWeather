@@ -204,6 +204,7 @@ class YDBStorage(BaseStorage):
 
         except BaseException as e:
             logger.error(f"FSM Storage error: {e}")
+            return None
 
     async def set_data(self, key: StorageKey, data: Dict[str, Any]) -> None:
         """
@@ -213,12 +214,12 @@ class YDBStorage(BaseStorage):
         :param data: new data
         """
         s_key = self._key(key)
-        # s_data = self._ser(data)
+        s_data = self._ser(data)
 
         try:
             query = f"""
                     DECLARE $k AS Utf8;
-                    DECLARE $d AS Json;
+                    DECLARE $d AS Utf8;
                     UPSERT INTO `{self.table_name}` (`key`, `data`)
                     VALUES ($k, $d)
                     """
@@ -226,13 +227,13 @@ class YDBStorage(BaseStorage):
                 query,
                 {
                     "$k": s_key,
-                    "$d": data,
+                    "$d": s_data,
                 },
             )
         except BaseException as e:
             logger.error(f"FSM Storage error: {e}")
 
-    async def get_data(self, key: StorageKey) -> Optional[Dict[str, Any]]:
+    async def get_data(self, key: StorageKey) -> Dict[str, Any]:
         """
         Get current data for key
 
@@ -254,11 +255,10 @@ class YDBStorage(BaseStorage):
                 },
             )
 
-            return result[0].rows[0].get("data") if result[0].rows else None
+            return self._dsr(result[0].rows[0].get("data")) if result[0].rows else None
 
         except BaseException as e:
             logger.error(f"FSM Storage error: {e}")
-            return None
 
     async def update_data(
             self, key: StorageKey, data: Dict[str, Any]
