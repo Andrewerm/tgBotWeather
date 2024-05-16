@@ -5,3 +5,4 @@ class ProfileFSM(StatesGroup):
     name = State()
     profession = State()
     filled = State()
+    new_post = State()

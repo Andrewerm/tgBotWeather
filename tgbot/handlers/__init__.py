@@ -2,6 +2,7 @@
 from .admin import admin_router  # type: ignore
 from .ai import ai_router  # type: ignore
 from .echo import echo_router  # type: ignore
+from .posts import posts_router  # type: ignore
 from .profile import profile_router  # type: ignore
 from .simple_menu import menu_router  # type: ignore
 from .user import user_router  # type: ignore
@@ -9,6 +10,7 @@ from .weather import weather_router  # type: ignore
 
 routers_list = [
     profile_router,
+    posts_router,
     weather_router,
     ai_router,
     # admin_router,

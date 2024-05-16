@@ -9,6 +9,8 @@ async def set_main_menu(bot: Bot):
                    description='Познакомиться'),
         BotCommand(command='/weather',
                    description='Узнать погоду'),
+        BotCommand(command='/posts',
+                   description='Работа с постами'),
     ]
 
     await bot.set_my_commands(main_menu_commands)
