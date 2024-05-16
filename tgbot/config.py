@@ -83,6 +83,7 @@ class TgBot:
     storage: StorageType
     webhook_url: Optional[str]
     bot_names: list[str]
+    gpt_context_deep: int
 
     @staticmethod
     def from_env(env: Env):
@@ -94,8 +95,10 @@ class TgBot:
         storage = env.str("STORAGE")
         webhook_url = env("WEBHOOK_URL", default=None)
         bot_names = env.list("BOT_NAMES", default=[], subcast=str)
+        gpt_context_deep = env.int("GPT_CONTEXT_DEEP", 10)
 
-        return TgBot(token=token, admin_ids=admin_ids, storage=storage, webhook_url=webhook_url, bot_names=bot_names)
+        return TgBot(token=token, admin_ids=admin_ids, storage=storage, webhook_url=webhook_url, bot_names=bot_names,
+                     gpt_context_deep=gpt_context_deep)
 
 
 @dataclass

@@ -19,7 +19,7 @@ async def promt_ai(message: Message, state: FSMContext) -> None:
         builder = AiRequestBuilder(state, message)
 
         # получение подготовленного запроса
-        requestMessage = await builder.get_result()
+        requestMessage = await builder.get_ai_request()
 
         # запрос в GPT
         yandex_ai_service = YandexChatGpt()

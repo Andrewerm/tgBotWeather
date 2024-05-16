@@ -84,17 +84,23 @@ class AiRequestBuilder:
     def _add_bot_names(self) -> None:
         self._request += f'Твои имена: {", ".join(self._config.tg_bot.bot_names)}. '
 
-    async def get_result(self) -> AiRequest:
-        # установка системной роли
-        await self.set_system_role()
+    async def get_ai_request(self) -> AiRequest:
         # восстановление истории чата
         await self.restore_history_chat()
+        # установка системной роли
+        await self.set_system_role()
         # вставляем системную роль
         self._ai_request.messages.insert(0, self._system_role_message)
 
         return self._ai_request
 
     async def save_history_to_storage(self):
+        """ Сохранение контекста общения с ботом """
+        # убираем системную роль
         without_system = list(filter(lambda x: x.role != Role.SYSTEM, self._ai_request.messages))
-        dict_prepare = [{x.role.value: x.text} for x in without_system]
+        # отрезаем сообщения, которые старше заданной глубины
+        count_messages = len(without_system)
+        cut_old_messages = without_system[
+                           -self._config.tg_bot.gpt_context_deep * 2:] if count_messages > self._config.tg_bot.gpt_context_deep * 2 else without_system
+        dict_prepare = [{x.role.value: x.text} for x in cut_old_messages]
         await self._state.update_data({ProfileDictEnum.CHAT_HISTORY.value: dict_prepare})
