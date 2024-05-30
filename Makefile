@@ -206,3 +206,16 @@ ya-redis-start:
 
 ya-redis-stop:
 	${YC} managed-redis cluster stop --name redis388
+
+
+yadb-local-start:
+	docker run --rm --name ydb-local -h localhost \
+	  --platform linux/amd64 \
+	  -p 2135:2135 -p 2136:2136 -p 8765:8765 \
+	  -v $(pwd)/ydb_certs:/ydb_certs -v $(pwd)/ydb_data:/ydb_data \
+	  -e GRPC_TLS_PORT=2135 -e GRPC_PORT=2136 -e MON_PORT=8765 \
+	  -e YDB_USE_IN_MEMORY_PDISKS=true \
+	  cr.yandex/yc/yandex-docker-local-ydb:latest
+
+yadb-local-stop:
+	docker stop ydb-local

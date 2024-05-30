@@ -5,6 +5,7 @@ betterlogging
 python-json-logger
 boto3
 ydb
+aiogram-calendar
 
 # # For enabling api:
 backoff
