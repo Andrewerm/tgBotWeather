@@ -7,7 +7,7 @@ from tgbot.config import load_config
 from tgbot.keyboards.posts import send_post_kb
 from tgbot.misc.callback import SendPostNowCallback, SendPostDelayCallback
 from tgbot.misc.states import CreatePostFSM
-from tgbot.services.posts_data_store import PostInfo
+from tgbot.services.posts_data_store import PostInfo, PostsStoreHandler
 
 posts_router = Router()
 
@@ -23,7 +23,7 @@ async def get_weather_location(message: Message, state: FSMContext):
 @posts_router.message(StateFilter(CreatePostFSM.new_post))
 async def new_post(message: Message, state: FSMContext):
     """ Создан новый пост """
-    # Создаем копию оригинального сообщения
+    # Создаем копию оригинального сообщения в этом же чате пользователя
     post_message = await message.copy_to(message.chat.id)
     # await message.copy_to('-1002035366472')
     # создаём управляющее сообщение
@@ -31,6 +31,9 @@ async def new_post(message: Message, state: FSMContext):
     post_chat_message = PostInfo(post_message_id=post_message.message_id, manage_message_id=manage_message.message_id,
                                  manage_chat_id=message.chat.id,
                                  channel_id=-1002035366472)
+    # сохраняем информацию об управляющем посте в storage
+    store = PostsStoreHandler()
+    await store.set_data(post_chat_message)
 
     await state.clear()
 

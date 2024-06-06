@@ -1,7 +1,7 @@
 import pytest
-from ydb import table
 
 from tgbot import config
+from tgbot.services.posts_data_store import PostsStoreHandler
 from .ai_api import AiRequest, AiRequestCompletionOptions, AiMessage, Role, YandexChatGpt, AiResponse
 from .geo_api import YaGeoDto, YaGeoApi
 from .weather_api import YaWeatherApi, Coordinate, WeatherDto
@@ -40,27 +40,5 @@ async def test_ya_gpt():
 
 @pytest.mark.asyncio
 async def test_ya_db():
-        endpoint = 'grpcs://ydb.serverless.yandexcloud.net:2135'
-        database = 'your_database'
-        table_name = 'your_table'
-
-        driver_config = table.DriverConfig(endpoint=endpoint)
-        driver = table.Driver(driver_config)
-
-        async with driver.table_client(database=database, table=table_name) as client:
-            # Создание структуры записи
-            record_scheme = Record(
-                "key", Utf8(),
-                "value", Decimal()
-            )
-
-            # Вставка документа
-            await client.upsert(
-                record_scheme,
-                {
-                    "key": "document_key",
-                    "value": 123.45
-                }
-            )
-
-            print("Документ успешно вставлен")
+    service = PostsStoreHandler()
+    await service.set_data()
