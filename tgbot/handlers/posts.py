@@ -7,7 +7,7 @@ from tgbot.config import load_config
 from tgbot.keyboards.posts import send_post_kb
 from tgbot.misc.callback import SendPostNowCallback, SendPostDelayCallback
 from tgbot.misc.states import CreatePostFSM
-from tgbot.services.posts_data_store import PostInfo, PostsStoreHandler
+from tgbot.services.posts_data_store import PostInfo, PostsStoreHandler, PostInfoData
 
 posts_router = Router()
 
@@ -28,7 +28,7 @@ async def new_post(message: Message, state: FSMContext):
     # await message.copy_to('-1002035366472')
     # создаём управляющее сообщение
     manage_message = await message.answer('Отправить пост?', reply_markup=send_post_kb(message))
-    post_chat_message = PostInfo(post_message_id=post_message.message_id, manage_message_id=manage_message.message_id,
+    post_chat_message = PostInfoData(post_message_id=post_message.message_id, manage_message_id=manage_message.message_id,
                                  manage_chat_id=message.chat.id,
                                  channel_id=-1002035366472)
     # сохраняем информацию об управляющем посте в storage

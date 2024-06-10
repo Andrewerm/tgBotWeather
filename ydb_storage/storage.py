@@ -324,7 +324,7 @@ class YDBDocumentStorage(BaseStorage):
         Returns:
 
         """
-        table = self.resource.create_table(
+        table = self.resource.read_table(
             TableName=self.table_name,
             KeySchema=[
                 {

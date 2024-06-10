@@ -8,7 +8,7 @@ config = load_config()
 
 
 def create_table(session, path):
-    session.create_table(
+    session.read_table(
         os.path.join(path, 'series'),
         ydb.TableDescription()
         .with_column(ydb.Column('series_id', ydb.PrimitiveType.Uint64))  # not null column
@@ -59,8 +59,8 @@ def run(driver_config):
                 )
             )
 
-            session = driver.table_client.session().create()
-            session.create_table('/series', description)
+            session = driver.table_client._session().create()
+            session.read_table('/series', description)
         except TimeoutError:
             print("Connect failed to YDB")
             print("Last reported errors by discovery:")

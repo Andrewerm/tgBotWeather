@@ -1,7 +1,7 @@
 import pytest
 
 from tgbot import config
-from tgbot.services.posts_data_store import PostsStoreHandler
+from tgbot.services.posts_data_store import PostsStoreHandler, PostInfo
 from .ai_api import AiRequest, AiRequestCompletionOptions, AiMessage, Role, YandexChatGpt, AiResponse
 from .geo_api import YaGeoDto, YaGeoApi
 from .weather_api import YaWeatherApi, Coordinate, WeatherDto
@@ -39,6 +39,32 @@ async def test_ya_gpt():
 
 
 @pytest.mark.asyncio
-async def test_ya_db():
+async def test_save_ya_db():
+    # post_chat_message = PostInfo(post_message_id=1, manage_message_id=1,
+    #                              manage_chat_id=1,
+    #                              channel_id=1002035366472)
     service = PostsStoreHandler()
     await service.set_data()
+    await service.stop_driver()
+
+
+@pytest.mark.asyncio
+async def test_read_ya_db():
+    service = PostsStoreHandler()
+    res = await service.get_data()
+    print(res)
+    await service.stop_driver()
+
+
+@pytest.mark.asyncio
+async def test_create_table():
+    service = PostsStoreHandler()
+    await service.create_table()
+    await service.stop_driver()
+
+
+@pytest.mark.asyncio
+async def test_delete_table():
+    service = PostsStoreHandler()
+    await service.delete_table()
+    await service.stop_driver()

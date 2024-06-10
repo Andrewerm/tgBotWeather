@@ -5,6 +5,7 @@ betterlogging
 python-json-logger
 boto3
 ydb
+ydb[yc]
 aiogram-calendar
 
 # # For enabling api:
@@ -20,4 +21,5 @@ yarl
 typing_extensions
 aiohttp
 yarl~=1.9
-# pytest
+#pytest
+#pytest-asyncio
