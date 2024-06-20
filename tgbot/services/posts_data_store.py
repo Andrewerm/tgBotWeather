@@ -14,21 +14,38 @@ FillDataQuery = """
         DECLARE $seriesData AS List<Struct<
             post_message_id: Uint32,
             manage_chat_id: Int32,
+            status: Utf8,
             manage_message_id: Uint32,
-            channel_id: Int32,
-            publication_at: Datetime 
+            channel_id: Int64,
+            publication_at: Datetime, 
+            delete_at: Optional<Datetime>, 
              >>;
             
             REPLACE INTO delayed_post
             SELECT
                 post_message_id,
-                manage_message_id,
                 manage_chat_id,
+                status,
+                manage_message_id,
                 channel_id,
-                publication_at
+                publication_at,
+                delete_at
             FROM AS_TABLE($seriesData);
     """
 
+READ_DOCUMENT_TRANSACTION = """
+DECLARE $post_message_id AS Uint32;
+DECLARE $manage_chat_id AS Int32;
+SELECT  post_message_id,
+                manage_chat_id,
+                status,
+                manage_message_id,
+                channel_id,
+                publication_at,
+                delete_at
+FROM delayed_post
+WHERE post_message_id = $post_message_id AND manage_chat_id = $manage_chat_id;
+"""
 
 @dataclass
 class PostInfo:
@@ -43,7 +60,7 @@ class PostInfo:
 
 class PostInfoData(object):
     __slots__ = (
-    "post_message_id", "manage_message_id", "manage_chat_id", "channel_id", "publication_at", "delete_at", "status")
+        "post_message_id", "manage_chat_id", "status", "manage_message_id", "channel_id", "publication_at", "delete_at")
 
     def __init__(self, post_message_id, manage_message_id, manage_chat_id, channel_id, publication_at, delete_at,
                  status):
@@ -54,22 +71,6 @@ class PostInfoData(object):
         self.publication_at = publication_at
         self.delete_at = delete_at
         self.status = status
-
-
-def get_series_data():
-    return [
-        PostInfoData(
-            5,
-            5,
-            5,
-            5
-        ), PostInfoData(
-            7,
-            7,
-            7,
-            7
-        ),
-    ]
 
 
 class PostsStoreHandler:
@@ -99,38 +100,23 @@ class PostsStoreHandler:
         """ Остановка драйвера """
         await self._driver.stop()
 
-    async def get_data(self):
+    async def get_data(self) -> Optional[dict]:
         session = await self.get_session()
-        key_prefix_type = ydb.TupleType().add_element(
-            ydb.PrimitiveType.Uint32)
-        key_range = KeyRange(
-            KeyBound((5,), key_prefix_type),
-            KeyBound((5,), key_prefix_type)
-        )
-        async_response_iterator = await session.read_table(self._db_path,
-                                                           columns=('post_message_id', 'manage_message_id'))
-        async for item in async_response_iterator:
-            # Process each item in the AsyncResponseIterator
-            print(item)
+        prepared = await session.prepare(READ_DOCUMENT_TRANSACTION)
+        result_sets = await session.transaction().execute(prepared, {"$post_message_id": 7, "$manage_chat_id": 5},
+                                                          commit_tx=True)
+        if result_sets and result_sets[0] and result_sets[0].rows and result_sets[0].rows[0]:
+            return result_sets[0].rows[0]
+        else:
+            return None
 
-    async def read_table(self, session, query):
-        """
-        Helper function to acquire session, execute `create_table` and release it
-        """
-        result = await session.execute_scheme(query)
-        print("result query: ", result)
-
-    # async def exec(self, post_data: PostInfo):
-
-    # await pool.release(session)
-
-    async def set_data(self):
+    async def set_data(self, data: PostInfoData):
         session = await self.get_session()
         prepared_query = await session.prepare(FillDataQuery)
-        await session.transaction(ydb.SerializableReadWrite()).execute(
+        res = await session.transaction(ydb.SerializableReadWrite()).execute(
             prepared_query,
             {
-                "$seriesData": get_series_data(),
+                "$seriesData": [data],
             },
             commit_tx=True,
         )
@@ -144,7 +130,7 @@ class PostsStoreHandler:
                 ydb.Column("post_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_chat_id", ydb.PrimitiveType.Int32),
-                ydb.Column("channel_id", ydb.PrimitiveType.Int32),
+                ydb.Column("channel_id", ydb.PrimitiveType.Int64),
                 ydb.Column('publication_at', ydb.PrimitiveType.Datetime),
                 ydb.Column('delete_at', ydb.OptionalType(ydb.PrimitiveType.Datetime)),
                 ydb.Column("status", ydb.PrimitiveType.Utf8)

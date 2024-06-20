@@ -1,3 +1,5 @@
+import time
+
 from aiogram import Router, Bot
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
@@ -7,7 +9,7 @@ from tgbot.config import load_config
 from tgbot.keyboards.posts import send_post_kb
 from tgbot.misc.callback import SendPostNowCallback, SendPostDelayCallback
 from tgbot.misc.states import CreatePostFSM
-from tgbot.services.posts_data_store import PostInfo, PostsStoreHandler, PostInfoData
+from tgbot.services.posts_data_store import PostsStoreHandler, PostInfoData
 
 posts_router = Router()
 
@@ -28,9 +30,12 @@ async def new_post(message: Message, state: FSMContext):
     # await message.copy_to('-1002035366472')
     # создаём управляющее сообщение
     manage_message = await message.answer('Отправить пост?', reply_markup=send_post_kb(message))
-    post_chat_message = PostInfoData(post_message_id=post_message.message_id, manage_message_id=manage_message.message_id,
-                                 manage_chat_id=message.chat.id,
-                                 channel_id=-1002035366472)
+    post_chat_message = PostInfoData(post_message_id=post_message.message_id,
+                                     manage_message_id=manage_message.message_id,
+                                     manage_chat_id=message.chat.id,
+                                     channel_id=-1002035366472, publication_at=int(time.time() + 600),
+                                     delete_at=None, status='new')
+
     # сохраняем информацию об управляющем посте в storage
     store = PostsStoreHandler()
     await store.set_data(post_chat_message)
