@@ -59,4 +59,4 @@ async def get_weather_location(message: Message, state: FSMContext):
             f"☀️ условия: {weather_data.fact_condition}\n",
             reply_markup=markup)
     else:
-        await message.reply(f"Сначала сообщи своё местоположение, {message.from_user.first_name}")
+        await message.reply(f"Сначала отправь свою геопозицию, {message.from_user.first_name}")

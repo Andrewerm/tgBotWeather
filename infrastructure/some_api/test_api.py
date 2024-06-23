@@ -1,7 +1,7 @@
 import pytest
 
 from tgbot import config
-from tgbot.services.posts_data_store import PostsStoreHandler, PostInfo
+from tgbot.services.posts_data_store import PostsStoreHandler
 from .ai_api import AiRequest, AiRequestCompletionOptions, AiMessage, Role, YandexChatGpt, AiResponse
 from .geo_api import YaGeoDto, YaGeoApi
 from .weather_api import YaWeatherApi, Coordinate, WeatherDto

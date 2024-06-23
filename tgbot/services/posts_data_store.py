@@ -1,18 +1,20 @@
-from dataclasses import dataclass
-from datetime import datetime
+import logging
+from enum import Enum
 from typing import Optional
 
 import ydb  # type: ignore
-from ydb import BaseSession, KeyBound, KeyRange
-from ydb.aio import Driver
+from ydb import BaseSession
+from ydb.aio import Driver  # type: ignore
 
 from tgbot.config import load_config
 
 config = load_config()
+logger = logging.getLogger(__name__)
 
 FillDataQuery = """
         DECLARE $seriesData AS List<Struct<
-            post_message_id: Uint32,
+            original_message_id: Uint32,
+            copied_message_id: Uint32,
             manage_chat_id: Int32,
             status: Utf8,
             manage_message_id: Uint32,
@@ -23,7 +25,8 @@ FillDataQuery = """
             
             REPLACE INTO delayed_post
             SELECT
-                post_message_id,
+                original_message_id,
+                copied_message_id,
                 manage_chat_id,
                 status,
                 manage_message_id,
@@ -34,9 +37,10 @@ FillDataQuery = """
     """
 
 READ_DOCUMENT_TRANSACTION = """
-DECLARE $post_message_id AS Uint32;
+DECLARE $original_message_id AS Uint32;
 DECLARE $manage_chat_id AS Int32;
-SELECT  post_message_id,
+SELECT original_message_id,
+                copied_message_id,
                 manage_chat_id,
                 status,
                 manage_message_id,
@@ -44,33 +48,32 @@ SELECT  post_message_id,
                 publication_at,
                 delete_at
 FROM delayed_post
-WHERE post_message_id = $post_message_id AND manage_chat_id = $manage_chat_id;
+WHERE original_message_id = $original_message_id AND manage_chat_id = $manage_chat_id;
 """
 
-@dataclass
-class PostInfo:
-    post_message_id: int  # ID поста, который будет скопирован в Канал
-    manage_message_id: int  # ID управляющего сообщения, где все кнопки
-    manage_chat_id: int  # ID чата с ботом, где всё настраивается
-    channel_id: int  # ID канала
-    publication_at: datetime  # время публикации
-    delete_at: datetime  # время удаления
-    status: str  # статус сообщения
+
+class PostStatus(Enum):
+    NEW = 'new'
+    SENT = 'sent'
 
 
 class PostInfoData(object):
     __slots__ = (
-        "post_message_id", "manage_chat_id", "status", "manage_message_id", "channel_id", "publication_at", "delete_at")
+        "original_message_id", "copied_message_id", "manage_chat_id", "status", "manage_message_id", "channel_id",
+        "publication_at", "delete_at")
 
-    def __init__(self, post_message_id, manage_message_id, manage_chat_id, channel_id, publication_at, delete_at,
-                 status):
-        self.post_message_id = post_message_id
-        self.manage_message_id = manage_message_id
-        self.manage_chat_id = manage_chat_id
-        self.channel_id = channel_id
-        self.publication_at = publication_at
-        self.delete_at = delete_at
-        self.status = status
+    def __init__(self, original_message_id: int, copied_message_id: int, manage_message_id: int, manage_chat_id: int,
+                 channel_id: int,
+                 publication_at: int, delete_at: Optional[int],
+                 status: PostStatus):
+        self.original_message_id = original_message_id  # ID поста, который будет скопирован в Канал
+        self.copied_message_id = copied_message_id  # ID поста, который является копией в Канале
+        self.manage_message_id = manage_message_id  # ID управляющего сообщения, где все кнопки
+        self.manage_chat_id = manage_chat_id  # ID чата с ботом, где всё настраивается
+        self.channel_id = channel_id  # ID канала
+        self.publication_at = publication_at  # время публикации
+        self.delete_at = delete_at  # время удаления
+        self.status = status.value  # статус сообщения
 
 
 class PostsStoreHandler:
@@ -98,22 +101,24 @@ class PostsStoreHandler:
 
     async def stop_driver(self) -> None:
         """ Остановка драйвера """
-        await self._driver.stop()
+        if self._driver:
+            await self._driver.stop()
 
-    async def get_data(self) -> Optional[dict]:
+    async def get_data(self, original_message_id: int, manage_chat_id: int) -> Optional[dict]:
         session = await self.get_session()
         prepared = await session.prepare(READ_DOCUMENT_TRANSACTION)
-        result_sets = await session.transaction().execute(prepared, {"$post_message_id": 7, "$manage_chat_id": 5},
+        result_sets = await session.transaction().execute(prepared, {"$original_message_id": original_message_id,
+                                                                     "$manage_chat_id": manage_chat_id},
                                                           commit_tx=True)
         if result_sets and result_sets[0] and result_sets[0].rows and result_sets[0].rows[0]:
             return result_sets[0].rows[0]
         else:
             return None
 
-    async def set_data(self, data: PostInfoData):
+    async def set_data(self, data: PostInfoData) -> None:
         session = await self.get_session()
         prepared_query = await session.prepare(FillDataQuery)
-        res = await session.transaction(ydb.SerializableReadWrite()).execute(
+        await session.transaction(ydb.SerializableReadWrite()).execute(
             prepared_query,
             {
                 "$seriesData": [data],
@@ -125,9 +130,10 @@ class PostsStoreHandler:
         """ Создаём таблицу для отложенных постов """
         description = (
             ydb.TableDescription()
-            .with_primary_keys("post_message_id", "manage_chat_id")
+            .with_primary_keys("original_message_id", "manage_chat_id")
             .with_columns(
-                ydb.Column("post_message_id", ydb.PrimitiveType.Uint32),
+                ydb.Column("copied_message_id", ydb.PrimitiveType.Uint32),
+                ydb.Column("original_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_chat_id", ydb.PrimitiveType.Int32),
                 ydb.Column("channel_id", ydb.PrimitiveType.Int64),
@@ -143,3 +149,18 @@ class PostsStoreHandler:
         """ Удаляем таблицу для отложенных постов """
         session = await self.get_session()
         await session.drop_table(self._db_path)
+
+    async def update_status(self, original_message_id: int, manage_chat_id: int, new_status: PostStatus):
+        """ Обновляет статус поста в БД """
+        res = await self.get_data(original_message_id, manage_chat_id)
+        if res:
+            data = PostInfoData(original_message_id=res['original_message_id'],
+                                copied_message_id=res['copied_message_id'],
+                                manage_message_id=res['manage_message_id'],
+                                manage_chat_id=res['manage_chat_id'],
+                                channel_id=res['channel_id'],
+                                publication_at=res['publication_at'],
+                                delete_at=res['delete_at'], status=new_status)
+            await self.set_data(data)
+        else:
+            logger.error(f'Пост с id <{original_message_id}> отсутствует в чате с ID <{manage_chat_id}>')
