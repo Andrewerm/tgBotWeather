@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 FillDataQuery = """
         DECLARE $seriesData AS List<Struct<
             original_message_id: Uint32,
-            copied_message_id: Uint32,
+            copied_message_id: Optional<Uint32>,
             manage_chat_id: Int32,
             status: Utf8,
             manage_message_id: Uint32,
             channel_id: Int64,
-            publication_at: Datetime, 
+            publication_at: Optional<Datetime>, 
             delete_at: Optional<Datetime>, 
              >>;
             
@@ -51,10 +51,24 @@ FROM delayed_post
 WHERE original_message_id = $original_message_id AND manage_chat_id = $manage_chat_id;
 """
 
+READ_DELAYED_LIST_TRANSACTION = """
+SELECT original_message_id,
+                copied_message_id,
+                manage_chat_id,
+                status,
+                manage_message_id,
+                channel_id,
+                publication_at,
+                delete_at
+FROM delayed_post
+WHERE status="delayed" and publication_at<=CurrentUtcDatetime();
+"""
+
 
 class PostStatus(Enum):
     NEW = 'new'
     SENT = 'sent'
+    DELAYED = 'delayed'
 
 
 class PostInfoData(object):
@@ -62,10 +76,12 @@ class PostInfoData(object):
         "original_message_id", "copied_message_id", "manage_chat_id", "status", "manage_message_id", "channel_id",
         "publication_at", "delete_at")
 
-    def __init__(self, original_message_id: int, copied_message_id: int, manage_message_id: int, manage_chat_id: int,
+    def __init__(self, original_message_id: int, manage_message_id: int, manage_chat_id: int,
                  channel_id: int,
-                 publication_at: int, delete_at: Optional[int],
-                 status: PostStatus):
+                 status: PostStatus,
+                 publication_at: Optional[int] = None,
+                 copied_message_id: Optional[int] = None,
+                 delete_at: Optional[int] = None):
         self.original_message_id = original_message_id  # ID поста, который будет скопирован в Канал
         self.copied_message_id = copied_message_id  # ID поста, который является копией в Канале
         self.manage_message_id = manage_message_id  # ID управляющего сообщения, где все кнопки
@@ -132,12 +148,12 @@ class PostsStoreHandler:
             ydb.TableDescription()
             .with_primary_keys("original_message_id", "manage_chat_id")
             .with_columns(
-                ydb.Column("copied_message_id", ydb.PrimitiveType.Uint32),
+                ydb.Column("copied_message_id", ydb.OptionalType(ydb.PrimitiveType.Uint32)),
                 ydb.Column("original_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_message_id", ydb.PrimitiveType.Uint32),
                 ydb.Column("manage_chat_id", ydb.PrimitiveType.Int32),
                 ydb.Column("channel_id", ydb.PrimitiveType.Int64),
-                ydb.Column('publication_at', ydb.PrimitiveType.Datetime),
+                ydb.Column('publication_at', ydb.OptionalType(ydb.PrimitiveType.Datetime)),
                 ydb.Column('delete_at', ydb.OptionalType(ydb.PrimitiveType.Datetime)),
                 ydb.Column("status", ydb.PrimitiveType.Utf8)
             )
@@ -164,3 +180,14 @@ class PostsStoreHandler:
             await self.set_data(data)
         else:
             logger.error(f'Пост с id <{original_message_id}> отсутствует в чате с ID <{manage_chat_id}>')
+
+    async def exec_get_delayed_list(self) -> Optional[dict]:
+        """ Выдаёт список постов, которые должны быть опубликованы к текущему времени """
+        session = await self.get_session()
+        prepared = await session.prepare(READ_DELAYED_LIST_TRANSACTION)
+        result_sets = await session.transaction().execute(prepared, {},
+                                                          commit_tx=True)
+        if result_sets and result_sets[0]:
+            return result_sets[0].rows
+        else:
+            return None

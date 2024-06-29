@@ -13,6 +13,7 @@ from tgbot.handlers import routers_list
 from tgbot.middlewares.config import ConfigMiddleware
 from tgbot.misc.commands_menu import set_main_menu
 from tgbot.services.logging_config import YcLoggingFormatter
+from tgbot.services.posts_data_store import PostsStoreHandler, PostStatus
 from ydb_storage.storage import YDBDocumentStorage, YDBStorage
 
 
@@ -98,6 +99,28 @@ async def ya_handler(event, context) -> dict:
 
     return {
         'statusCode': 200,
+    }
+
+async def delayed_task_exec() -> dict:
+    """ Выполнение задач по отложенной публикации и удалению """
+    store = PostsStoreHandler()
+    try:
+        results = await store.exec_get_delayed_list()
+        for item in results:
+            copied_message = await bot.copy_message(chat_id='-1002035366472', from_chat_id=item['manage_chat_id'],
+                                                    message_id=item['original_message_id'])
+            store = PostsStoreHandler()
+
+            await store.update_status(item['original_message_id'], item['manage_chat_id'], PostStatus.SENT)
+
+        statusCode = 200
+        logging.debug(f'Событие по таймеру, исполнено: {results} событий')
+    except Exception as e:
+        statusCode = 500
+        logging.error(e)
+
+    return {
+        'statusCode': statusCode,
     }
 
 

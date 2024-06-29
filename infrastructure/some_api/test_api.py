@@ -1,5 +1,6 @@
 import pytest
 
+from bot import delayed_task_exec
 from tgbot import config
 from tgbot.services.posts_data_store import PostsStoreHandler
 from .ai_api import AiRequest, AiRequestCompletionOptions, AiMessage, Role, YandexChatGpt, AiResponse
@@ -68,3 +69,11 @@ async def test_delete_table():
     service = PostsStoreHandler()
     await service.delete_table()
     await service.stop_driver()
+
+
+@pytest.mark.asyncio
+async def test_delayed_exec():
+    await delayed_task_exec()
+    # service = PostsStoreHandler()
+    # await service.exec_get_delayed_list()
+    # await service.stop_driver()
